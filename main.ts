@@ -1,11 +1,34 @@
 const TRACE_STORE: Record<string, any> = {};
 
-export function getFromTrace(name: string): any {
-    return TRACE_STORE[name];
+/**
+ * Retrieves a value from the trace store using a dot-notated path.
+ * e.g., getFromTrace("nodeName.input.param")
+ */
+export function getFromTrace(path: string): any {
+    const parts = path.split('.');
+    let current = TRACE_STORE;
+    for (const part of parts) {
+        if (current === undefined || current === null) return undefined;
+        current = current[part];
+    }
+    return current;
 }
 
-export function trace<T>(name: string, value: T): T {
-    TRACE_STORE[name] = value;
+/**
+ * Records a value in the trace store using a dot-notated path.
+ * e.g., trace("nodeName.output", value)
+ */
+export function trace(path: string, value: any): any {
+    const parts = path.split('.');
+    let current = TRACE_STORE;
+    for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (current[part] === undefined) {
+            current[part] = {};
+        }
+        current = current[part];
+    }
+    current[parts[parts.length - 1]] = value;
     return value;
 }
 
@@ -26,25 +49,41 @@ export function node<T, P extends object>(
 ): () => T {
     const nodeName = invocation.name;
     return () => {
-        const precalculated = getFromTrace(nodeName);
-        if (precalculated !== undefined) return precalculated;
+        // PERFORMANCE: Direct access to TRACE_STORE without path parsing
+        let nodeTrace = TRACE_STORE[nodeName];
+        if (nodeTrace?.output !== undefined) return nodeTrace.output;
 
         let completeInputs = {} as P;
         if (inputs) {
-            for (const key in inputs) {
-                const traceKey = `${nodeName}.input.${key}`;
-                let candidate = getFromTrace(traceKey);
+            if (!nodeTrace) {
+                nodeTrace = TRACE_STORE[nodeName] = {};
+            }
+            if (!nodeTrace.input) {
+                nodeTrace.input = {};
+            }
+            const inputTrace = nodeTrace.input;
 
+            for (const key in inputs) {
+                const candidate = inputTrace[key];
                 if (candidate !== undefined) {
                     completeInputs[key as keyof P] = candidate;
                 } else {
-                    // Resolve triggers the PULL
-                    completeInputs[key as keyof P] = resolve(inputs[key] as any);
-                    trace(traceKey, completeInputs[key as keyof P]);
+                    const value = resolve(inputs[key] as any);
+                    completeInputs[key as keyof P] = value;
+                    inputTrace[key] = value;
                 }
             }
         }
-        return trace(nodeName, invocation(completeInputs));
+
+        const result = invocation(completeInputs);
+        
+        // Ensure nodeTrace exists if it wasn't created in the inputs block
+        if (!TRACE_STORE[nodeName]) {
+            TRACE_STORE[nodeName] = {};
+        }
+        TRACE_STORE[nodeName].output = result;
+        
+        return result;
     };
 }
 
@@ -61,12 +100,6 @@ export function chartNode<T>(
 
 /**
  * @projectName Example Loan Return Application
- *
- * @description:
- * Configure the INPUT_VARIABLES below with your loan details.
- * The application generates a loan schedule which can be visualized
- * using the chart function (to plot remaining loan balance) or the
- * table function (to display payment lines).
  */
 
 interface PaymentLine {
@@ -80,18 +113,11 @@ interface PaymentLine {
 const INPUT_VARIABLES = {
     loanAmount: 100000,
     annualInterestRate: 5.0, // in percentage
-    termMonths: 360, // 30 years
+    //termMonths: 360, // 30 years
+    termMonths: 12, // 1 year
     startDate: new Date('2026-04-01'),
 };
 
-/**
- * Calculates the fixed monthly payment for a loan based on the principal, annual interest rate, and loan term in months.
- *
- * @param principal
- * @param annualRate
- * @param months
- * @return monthlyPayment
- */
 function calculateMonthlyPayment({ principal, annualRate, months }: {
     principal: number;
     annualRate: number;
@@ -109,14 +135,6 @@ function calculateMonthlyPayment({ principal, annualRate, months }: {
     }
 }
 
-/**
- *
- * @param monthlyPayment
- * @param annualInterestRate
- * @param termMonths
- * @param startDate
- * @return loanSchedule
- */
 function generateLoanSchedule({ loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate }: {
     loanAmount: number,
     monthlyPayment: number,
@@ -135,7 +153,6 @@ function generateLoanSchedule({ loanAmount, monthlyPayment, annualInterestRate, 
         const interestPaid = currentBalance * monthlyRate;
         let principalPaid = monthlyPayment - interestPaid;
 
-        // Handle last month rounding
         if (month === termMonths) {
             principalPaid = currentBalance;
         }
@@ -150,7 +167,6 @@ function generateLoanSchedule({ loanAmount, monthlyPayment, annualInterestRate, 
             remainingBalance: Math.max(0, currentBalance),
         });
 
-        // Advance to next month
         currentDate.setMonth(currentDate.getMonth() + 1);
     }
 
@@ -164,8 +180,8 @@ export const defineWorkbook = (context: any) => ({
 
     calculateMonthlyPayment: node(calculateMonthlyPayment, {
         principal: () => context.inputVariables.loanAmount,
-        months: () => context.inputVariables.termMonths,       // Fixed mapping
-        annualRate: () => context.inputVariables.annualInterestRate, // Fixed mapping
+        months: () => context.inputVariables.termMonths,
+        annualRate: () => context.inputVariables.annualInterestRate,
     }),
 
     generateLoanSchedule: node(generateLoanSchedule, {
@@ -183,18 +199,12 @@ export const defineWorkbook = (context: any) => ({
 
 if (import.meta.main) {
     const workbook = {} as any;
-
-    // 1. Define nodes and bind them to the workbook context
     const nodes = defineWorkbook(workbook);
-
-    // 2. Wire the context so nodes can find each other
     Object.assign(workbook, nodes);
 
-    // 3. Trigger the Pull from the leaf node
     console.log("Starting pull execution...");
     workbook.renderLoanBalanceChart();
 
-    // 4. Inspect the trace
     console.log("Execution Trace:");
     console.log(JSON.stringify(TRACE_STORE, null, 4));
 }
