@@ -1,12 +1,12 @@
 let TRACE_STORE: Record<string, any> = {};
 
-// NEW: Tracks forward edges (Source Node -> Set of Dependent Nodes)
+// Tracks forward edges (Source Node -> Set of Dependent Nodes)
 const FORWARD_EDGES: Record<string, Set<string>> = {};
 
-// NEW: The currently evaluating node pointer
+// The currently evaluating node pointer
 let ACTIVE_EVALUATING_NODE: string | null = null;
 
-// NEW: Stack to detect circular dependencies during evaluation
+// Stack to detect circular dependencies during evaluation
 const EVALUATION_STACK: string[] = [];
 
 /**
@@ -18,8 +18,6 @@ export function evalWorkbook<T extends Record<string, any>>(
     workbookLoader: (context: any) => T,
     nodeName: keyof T
 ): any {
-    // Note: We no longer clear the entire trace if we want to support incremental 
-    // updates via mutateInput, but for a clean "full eval" entry point, we keep it.
     const context: any = {};
     const workbook = workbookLoader(context);
     Object.assign(context, workbook);
@@ -160,7 +158,7 @@ export function chartNode<T>(
         ACTIVE_EVALUATING_NODE = previousEvaluator;
         
         if (!TRACE_STORE[nodeName]) TRACE_STORE[nodeName] = {};
-        TRACE_STORE[nodeName].output = null; // Charts don't "return" data but need to exist in trace
+        TRACE_STORE[nodeName].output = null;
         TRACE_STORE[nodeName].stale = false;
 
         console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
@@ -288,133 +286,4 @@ function invalidateDownstream(sourceNode: string): void {
             invalidateDownstream(dependent);
         }
     }
-}
-
-/**
- * @projectName Example Loan Return Application
- */
-
-interface PaymentLine {
-    paymentDate: Date;
-    amount: number;
-    principalPaid: number;
-    interestPaid: number;
-    remainingBalance: number;
-}
-
-const INPUT_VARIABLES = {
-    loanAmount: 100000,
-    annualInterestRate: 5.0,
-    termMonths: 12,
-    startDate: new Date('2026-04-01'),
-};
-
-function calculateMonthlyPayment({principal, annualRate, months}: {
-    principal: number;
-    annualRate: number;
-    months: number;
-}): {
-    monthlyPayment: number
-} {
-    console.log("[user defined] calculateMonthlyPayment...");
-
-    const monthlyRate = annualRate / 100 / 12;
-    if (monthlyRate === 0) return {
-        monthlyPayment: principal / months
-    };
-
-    return {
-        monthlyPayment: (principal * (monthlyRate * Math.pow(1 + monthlyRate, months))) / (Math.pow(1 + monthlyRate, months) - 1)
-    }
-}
-
-function generateLoanSchedule({loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate}: {
-                                  loanAmount: number,
-                                  monthlyPayment: number,
-                                  annualInterestRate: number,
-                                  termMonths: number,
-                                  startDate: Date
-                              }
-): { loanSchedule: PaymentLine[] } {
-
-    console.log("[user defined] generateLoanSchedule...");
-
-    const monthlyRate = annualInterestRate / 100 / 12;
-
-    let currentBalance = loanAmount;
-    let currentDate = new Date(startDate);
-    const schedule: PaymentLine[] = [];
-
-    for (let month = 1; month <= termMonths; month++) {
-        const interestPaid = currentBalance * monthlyRate;
-        let principalPaid = monthlyPayment - interestPaid;
-
-        if (month === termMonths) {
-            principalPaid = currentBalance;
-        }
-
-        currentBalance -= principalPaid;
-
-        schedule.push({
-            paymentDate: new Date(currentDate),
-            amount: principalPaid + interestPaid,
-            principalPaid,
-            interestPaid,
-            remainingBalance: Math.max(0, currentBalance),
-        });
-
-        currentDate.setMonth(currentDate.getMonth() + 1);
-    }
-
-    return {
-        loanSchedule: schedule
-    }
-}
-
-export const myWorkbook = (context: any) => ({
-    inputVariables: inputListNode("inputVariables", INPUT_VARIABLES),
-
-    calculateMonthlyPayment: node(calculateMonthlyPayment, {
-        principal: () => context.inputVariables().rows.loanAmount,
-        months: () => context.inputVariables().rows.termMonths,
-        annualRate: () => context.inputVariables().rows.annualInterestRate,
-    }),
-
-    generateLoanSchedule: node(generateLoanSchedule, {
-        loanAmount: () => context.inputVariables().rows.loanAmount,
-        monthlyPayment: () => context.calculateMonthlyPayment().monthlyPayment,
-        annualInterestRate: () => context.inputVariables().rows.annualInterestRate,
-        termMonths: () => context.inputVariables().rows.termMonths,
-        startDate: () => context.inputVariables().rows.startDate,
-    }),
-
-    renderLoanBalanceChart: chartNode("renderLoanBalanceChart", {
-        input: () => context.generateLoanSchedule().loanSchedule,
-    }),
-
-    renderLoanScheduleTable: outputTableNode("renderLoanScheduleTable", {
-        rows: () => context.generateLoanSchedule().loanSchedule,
-    }),
-});
-
-/**
- * Specifically evaluates a node in myWorkbook and returns the execution trace.
- */
-export function eval_myWorkbook(nodeName: string): any {
-    return evalWorkbook(myWorkbook, nodeName as any);
-}
-
-if (import.meta.main) {
-    console.log("--- Initial Evaluation ---");
-    eval_myWorkbook("renderLoanScheduleTable");
-
-    console.log("\n--- Mutating Input (Push) ---");
-    mutateInput("inputVariables", {
-        ...INPUT_VARIABLES,
-        loanAmount: 200000,
-    });
-
-    console.log("\n--- Second Evaluation (Targeted Pull) ---");
-    // This should only re-run necessary nodes
-    eval_myWorkbook("renderLoanScheduleTable");
 }

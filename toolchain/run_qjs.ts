@@ -28,7 +28,8 @@ class Scope {
     }
 }
 
-const mainTsPath = join(Deno.cwd(), "main.ts");
+const mainTsPath = join(Deno.cwd(), "demo/loan-schedule/main.ts");
+const qjsOutputPath = join(Deno.cwd(), "tmp/main.qjs.js");
 
 console.log(`[Toolchain] Reading ${mainTsPath}...`);
 
@@ -40,22 +41,52 @@ const project = new Project({
     }
 });
 
-project.addSourceFileAtPath(mainTsPath);
+project.addSourceFilesAtPaths([
+    "src/**/*.ts",
+    "demo/loan-schedule/**/*.ts"
+]);
 
-// Transpile to memory
+// Transpile all to memory
 const emitResult = project.emitToMemory();
-let jsCode = emitResult.getFiles()[0].text;
+const files = emitResult.getFiles();
+
+// Concatenate files in order: framework, library, then main
+let jsCode = "";
+const order = ["reactive_graph.js", "types.js", "library.js", "main.js"];
+
+for (const name of order) {
+    const file = files.find(f => f.filePath.endsWith(name));
+    if (file) {
+        jsCode += `\n// --- ${name} ---\n` + file.text;
+    }
+}
 
 // Clean up transpilation artifacts for VM compatibility
 jsCode = jsCode.replace(/^"use strict";/gm, "");
 jsCode = jsCode.replace(/^const TRACE_STORE =/gm, "var TRACE_STORE ="); 
 jsCode = jsCode.replace(/^export /gm, "");
+jsCode = jsCode.replace(/^import .* from .*$/gm, ""); // Remove imports
+jsCode = jsCode.replace(/^const .* = require\(.*\);$/gm, ""); // Remove require
 jsCode = jsCode.replace(/^Object\.defineProperty\(exports,.*$/gm, "");
 jsCode = jsCode.replace(/^exports\..* = void 0;.*$/gm, "");
 jsCode = jsCode.replace(/exports\.(\w+) = \1;/g, "");
 jsCode = jsCode.replace(/exports\./gm, "");
+
+// NEW: Strip module prefixes like (0, reactive_graph_ts_1.node) or library_ts_1.func
+jsCode = jsCode.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, "$1");
+jsCode = jsCode.replace(/\w+\.(\w+)/g, (match, p1) => {
+    // List of prefixes to ignore if needed, but for now, we strip everything before the dot 
+    // IF it looks like a module prefix (ends with _ts_1 or similar)
+    if (match.includes("_ts_")) return p1;
+    return match;
+});
+
 jsCode = jsCode.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, "");
 jsCode = "const exports = {};\n" + jsCode;
+
+// NEW: Write transpiled JS to tmp/ for inspection
+console.log(`[Toolchain] Writing transpiled JS to ${qjsOutputPath}...`);
+await Deno.writeTextFile(qjsOutputPath, jsCode);
 
 console.log(`[Toolchain] Initializing QuickJS WASM...`);
 const QuickJS = await getQuickJS();
