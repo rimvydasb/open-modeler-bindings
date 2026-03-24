@@ -3,17 +3,21 @@ const TRACE_STORE: Record<string, any> = {};
 /**
  * Generic evaluator for workbook-style dependency graphs.
  * This is a pull strategy evaluation.
+ * Clears the trace before execution and returns the final trace store.
  */
 export function evalWorkbook<T extends Record<string, any>>(
     workbookLoader: (context: any) => T,
     nodeName: keyof T
 ): any {
+    clearTrace();
+
     const context: any = {};
     const workbook = workbookLoader(context);
     Object.assign(context, workbook);
 
     if (typeof workbook[nodeName] === 'function') {
-        return workbook[nodeName]();
+        workbook[nodeName]();
+        return TRACE_STORE;
     }
     throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
 }
@@ -250,8 +254,7 @@ export const myWorkbook = (context: any) => ({
  * Specifically evaluates a node in myWorkbook and returns the execution trace.
  */
 export function eval_myWorkbook(nodeName: string): any {
-    evalWorkbook(myWorkbook, nodeName);
-    return TRACE_STORE;
+    return evalWorkbook(myWorkbook, nodeName as any);
 }
 
 if (import.meta.main) {
