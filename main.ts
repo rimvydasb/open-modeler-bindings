@@ -1,6 +1,24 @@
 const TRACE_STORE: Record<string, any> = {};
 
 /**
+ * Generic evaluator for workbook-style dependency graphs.
+ * This is a pull strategy evaluation.
+ */
+export function evalWorkbook<T extends Record<string, any>>(
+    workbookLoader: (context: any) => T,
+    nodeName: keyof T
+): any {
+    const context: any = {};
+    const workbook = workbookLoader(context);
+    Object.assign(context, workbook);
+
+    if (typeof workbook[nodeName] === 'function') {
+        return workbook[nodeName]();
+    }
+    throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
+}
+
+/**
  * Retrieves a value from the trace store using a dot-notated path.
  * e.g., getFromTrace("nodeName.input.param")
  */
@@ -228,14 +246,18 @@ export const myWorkbook = (context: any) => ({
     }),
 });
 
-if (import.meta.main) {
-    const workbook = {} as any;
-    const nodes = myWorkbook(workbook);
-    Object.assign(workbook, nodes);
+/**
+ * Specifically evaluates a node in myWorkbook and returns the execution trace.
+ */
+export function eval_myWorkbook(nodeName: string): any {
+    evalWorkbook(myWorkbook, nodeName);
+    return TRACE_STORE;
+}
 
-    console.log("Starting pull execution...");
-    workbook.renderLoanBalanceChart();
-    workbook.renderLoanScheduleTable();
+if (import.meta.main) {
+    console.log("Starting pull execution via evaluator...");
+    eval_myWorkbook("renderLoanBalanceChart");
+    eval_myWorkbook("renderLoanScheduleTable");
 
     console.log("Execution Trace:");
     console.log(JSON.stringify(TRACE_STORE, null, 4));
