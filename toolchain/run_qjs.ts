@@ -55,7 +55,7 @@ let jsCode = "";
 const order = ["reactive_graph.js", "types.js", "library.js", "main.js"];
 
 for (const name of order) {
-    const file = files.find(f => f.filePath.endsWith(name));
+    const file = files.find((f: { filePath: string; text: string }) => f.filePath.endsWith(name));
     if (file) {
         jsCode += `\n// --- ${name} ---\n` + file.text;
     }
@@ -96,7 +96,7 @@ const vm = QuickJS.newContext();
 {
     const scope = new Scope();
     try {
-        const logFn = scope.manage(vm.newFunction("log", (...args) => {
+        const logFn = scope.manage(vm.newFunction("log", (...args: QuickJSHandle[]) => {
             const nativeArgs = args.map(arg => vm.dump(arg));
             console.log("[VM Log]", ...nativeArgs);
         }));
