@@ -1,39 +1,46 @@
+const TRACE_STORE: Record<string, any> = {};
+
 export function getFromTrace(name: string): any {
-    // external function
-    return null;
+    return TRACE_STORE[name];
 }
 
 export function trace<T>(name: string, value: T): T {
-    // external function
+    TRACE_STORE[name] = value;
     return value;
 }
 
-// Corrected Execution Lifecycle
+export function clearTrace(): void {
+    for (const key in TRACE_STORE) {
+        delete TRACE_STORE[key];
+    }
+}
+
+// Standardized input resolver
+function resolve<T>(input: T | (() => T)): T {
+    return typeof input === 'function' ? (input as () => T)() : input;
+}
+
 export function node<T, P extends object>(
     invocation: (arg: P) => T,
     inputs?: { [K in keyof P]: P[K] | (() => P[K]) }
 ): () => T {
     const nodeName = invocation.name;
-
-    // Return the thunk immediately. Do the work ONLY when invoked.
     return () => {
         const precalculated = getFromTrace(nodeName);
         if (precalculated !== undefined) return precalculated;
 
         let completeInputs = {} as P;
         if (inputs) {
-            const inputNames = Object.keys(inputs) as Extract<keyof P, string>[];
-            for (const key of inputNames) {
+            for (const key in inputs) {
                 const traceKey = `${nodeName}.input.${key}`;
                 let candidate = getFromTrace(traceKey);
+
                 if (candidate !== undefined) {
-                    completeInputs[key] = candidate;
+                    completeInputs[key as keyof P] = candidate;
                 } else {
-                    const valueOrFn = inputs[key];
-                    completeInputs[key] = typeof valueOrFn === 'function'
-                        ? (valueOrFn as () => P[typeof key])()
-                        : valueOrFn as P[typeof key];
-                    trace(traceKey, completeInputs[key]);
+                    // Resolve triggers the PULL
+                    completeInputs[key as keyof P] = resolve(inputs[key] as any);
+                    trace(traceKey, completeInputs[key as keyof P]);
                 }
             }
         }
@@ -43,10 +50,12 @@ export function node<T, P extends object>(
 
 export function chartNode<T>(
     nodeName: string,
-    inputs: { input: T }
+    inputs: { input: T | (() => T) }
 ): () => void {
     return () => {
-        // Logic for chart_hook(inputs.input) goes here - this is external function that pushes chart data
+        // This resolution triggers the upstream generateLoanSchedule()
+        const data = resolve(inputs.input);
+        console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
     };
 }
 
@@ -83,7 +92,7 @@ const INPUT_VARIABLES = {
  * @param months
  * @return monthlyPayment
  */
-function calculateMonthlyPayment({principal, annualRate, months}: {
+function calculateMonthlyPayment({ principal, annualRate, months }: {
     principal: number;
     annualRate: number;
     months: number;
@@ -108,13 +117,13 @@ function calculateMonthlyPayment({principal, annualRate, months}: {
  * @param startDate
  * @return loanSchedule
  */
-function generateLoanSchedule({loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate}: {
-                                  loanAmount: number,
-                                  monthlyPayment: number,
-                                  annualInterestRate: number,
-                                  termMonths: number,
-                                  startDate: Date
-                              }
+function generateLoanSchedule({ loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate }: {
+    loanAmount: number,
+    monthlyPayment: number,
+    annualInterestRate: number,
+    termMonths: number,
+    startDate: Date
+}
 ): { loanSchedule: PaymentLine[] } {
     const monthlyRate = annualInterestRate / 100 / 12;
 
@@ -150,99 +159,42 @@ function generateLoanSchedule({loanAmount, monthlyPayment, annualInterestRate, t
     }
 }
 
-const workbook: any = {
-    /**
-     * @nodeType list
-     * @displayName Input Variables
-     */
-    inputVariables: INPUT_VARIABLES,
-
-    /**
-     * @nodeType function
-     * @displayName Monthly Payment
-     */
-    calculateMonthlyPayment: node(calculateMonthlyPayment, {
-        principal: () => workbook.inputVariables.loanAmount,
-        months: () => workbook.inputVariables.annualInterestRate,
-        annualRate: () => workbook.inputVariables.termMonths,
-    }),
-
-    /**
-     * @nodeType function
-     * @displayName Loan Schedule
-     */
-    generateLoanSchedule: node(generateLoanSchedule, {
-        loanAmount: () => workbook.inputVariables.loanAmount,
-        monthlyPayment: () => workbook.calculateMonthlyPayment().monthlyPayment,
-        annualInterestRate: () => workbook.inputVariables.annualInterestRate,
-        termMonths: () => workbook.inputVariables.termMonths,
-        startDate: () => workbook.inputVariables.startDate,
-    }),
-
-    renderLoanBalanceChart: chartNode("renderLoanBalanceChart", {
-        input: () => workbook.generateLoanSchedule().loanSchedule,
-    }),
-
-    renderLoanScheduleTable: chartNode("renderLoanScheduleTable", {
-        input: () => workbook.generateLoanSchedule().loanSchedule,
-    }),
-}
-
-console.log(JSON.stringify(workbook, null, 2));
-
-class MyWorkbook {
-
-    get inputVariables() {
-        return INPUT_VARIABLES
-    }
-
-    get calculateMonthlyPayment() {
-        return node(calculateMonthlyPayment, {
-            principal: () => workbook.inputVariables.loanAmount,
-            months: () => workbook.inputVariables.annualInterestRate,
-            annualRate: () => workbook.inputVariables.termMonths,
-        })
-    }
-
-    get generateLoanSchedule() {
-        return node(generateLoanSchedule, {
-            loanAmount: () => workbook.inputVariables.loanAmount,
-            monthlyPayment: () => this.calculateMonthlyPayment().monthlyPayment,
-            annualInterestRate: () => workbook.inputVariables.annualInterestRate,
-            termMonths: () => workbook.inputVariables.termMonths,
-            startDate: () => workbook.inputVariables.startDate,
-        })
-    }
-}
-
-
-
-const defineWorkbook = (ctx: any) => ({
+export const defineWorkbook = (context: any) => ({
     inputVariables: INPUT_VARIABLES,
 
     calculateMonthlyPayment: node(calculateMonthlyPayment, {
-        principal: () => ctx.inputVariables.loanAmount,
-        months: () => ctx.inputVariables.termMonths,
-        annualRate: () => ctx.inputVariables.annualInterestRate,
+        principal: () => context.inputVariables.loanAmount,
+        months: () => context.inputVariables.termMonths,       // Fixed mapping
+        annualRate: () => context.inputVariables.annualInterestRate, // Fixed mapping
     }),
 
     generateLoanSchedule: node(generateLoanSchedule, {
-        loanAmount: () => ctx.inputVariables.loanAmount,
-        monthlyPayment: () => ctx.calculateMonthlyPayment().monthlyPayment,
-        annualInterestRate: () => ctx.inputVariables.annualInterestRate,
-        termMonths: () => ctx.inputVariables.termMonths,
-        startDate: () => ctx.inputVariables.startDate,
+        loanAmount: () => context.inputVariables.loanAmount,
+        monthlyPayment: () => context.calculateMonthlyPayment().monthlyPayment,
+        annualInterestRate: () => context.inputVariables.annualInterestRate,
+        termMonths: () => context.inputVariables.termMonths,
+        startDate: () => context.inputVariables.startDate,
     }),
 
     renderLoanBalanceChart: chartNode("renderLoanBalanceChart", {
-        input: () => workbook.generateLoanSchedule().loanSchedule,
-    }),
-
-    renderLoanScheduleTable: chartNode("renderLoanScheduleTable", {
-        input: () => workbook.generateLoanSchedule().loanSchedule,
+        input: () => context.generateLoanSchedule().loanSchedule,
     }),
 });
 
-// Bootstrap
-const workbook2 = {} as any;
-Object.assign(workbook2, defineWorkbook(workbook2));
+if (import.meta.main) {
+    const workbook = {} as any;
+
+    // 1. Define nodes and bind them to the workbook context
+    const nodes = defineWorkbook(workbook);
+
+    // 2. Wire the context so nodes can find each other
+    Object.assign(workbook, nodes);
+
+    // 3. Trigger the Pull from the leaf node
+    console.log("Starting pull execution...");
+    workbook.renderLoanBalanceChart();
+
+    // 4. Inspect the trace
+    console.log("Execution Trace:");
+    console.log(JSON.stringify(TRACE_STORE, null, 4));
+}
