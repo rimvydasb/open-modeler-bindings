@@ -39,7 +39,7 @@ export function clearTrace(): void {
 }
 
 // Standardized input resolver
-function resolve<T>(input: T | (() => T)): T {
+function resolveValue<T>(input: T | (() => T)): T {
     return typeof input === 'function' ? (input as () => T)() : input;
 }
 
@@ -68,7 +68,7 @@ export function node<T, P extends object>(
                 if (candidate !== undefined) {
                     completeInputs[key as keyof P] = candidate;
                 } else {
-                    const value = resolve(inputs[key] as any);
+                    const value = resolveValue(inputs[key] as any);
                     completeInputs[key as keyof P] = value;
                     inputTrace[key] = value;
                 }
@@ -76,13 +76,13 @@ export function node<T, P extends object>(
         }
 
         const result = invocation(completeInputs);
-        
+
         // Ensure nodeTrace exists if it wasn't created in the inputs block
         if (!TRACE_STORE[nodeName]) {
             TRACE_STORE[nodeName] = {};
         }
         TRACE_STORE[nodeName].output = result;
-        
+
         return result;
     };
 }
@@ -92,9 +92,37 @@ export function chartNode<T>(
     inputs: { input: T | (() => T) }
 ): () => void {
     return () => {
-        // This resolution triggers the upstream generateLoanSchedule()
-        const data = resolve(inputs.input);
+        const data = resolveValue(inputs.input);
         console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
+    };
+}
+
+export function outputTableNode<T>(
+    tableName: string,
+    inputs: { rows: T[] | (() => T[]) }
+): () => void {
+    return () => {
+        const data = resolveValue(inputs.rows);
+        console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
+    };
+}
+
+/**
+ * T is an array or object of already resolved values.
+ * Initial values will be taken as default, but can be edited.
+ *
+ * @param listName
+ * @param inputs
+ */
+export function inputListNode<T>(
+    listName: string,
+    inputs: T
+): () => { rows: T } {
+    return () => {
+        console.log(`[Input List: ${listName}]`);
+        return {
+            rows: inputs,
+        }
     };
 }
 
@@ -112,13 +140,12 @@ interface PaymentLine {
 
 const INPUT_VARIABLES = {
     loanAmount: 100000,
-    annualInterestRate: 5.0, // in percentage
-    //termMonths: 360, // 30 years
-    termMonths: 12, // 1 year
+    annualInterestRate: 5.0,
+    termMonths: 12,
     startDate: new Date('2026-04-01'),
 };
 
-function calculateMonthlyPayment({ principal, annualRate, months }: {
+function calculateMonthlyPayment({principal, annualRate, months}: {
     principal: number;
     annualRate: number;
     months: number;
@@ -135,13 +162,13 @@ function calculateMonthlyPayment({ principal, annualRate, months }: {
     }
 }
 
-function generateLoanSchedule({ loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate }: {
-    loanAmount: number,
-    monthlyPayment: number,
-    annualInterestRate: number,
-    termMonths: number,
-    startDate: Date
-}
+function generateLoanSchedule({loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate}: {
+                                  loanAmount: number,
+                                  monthlyPayment: number,
+                                  annualInterestRate: number,
+                                  termMonths: number,
+                                  startDate: Date
+                              }
 ): { loanSchedule: PaymentLine[] } {
     const monthlyRate = annualInterestRate / 100 / 12;
 
@@ -175,35 +202,40 @@ function generateLoanSchedule({ loanAmount, monthlyPayment, annualInterestRate, 
     }
 }
 
-export const defineWorkbook = (context: any) => ({
-    inputVariables: INPUT_VARIABLES,
+export const myWorkbook = (context: any) => ({
+    inputVariables: inputListNode("inputVariables", INPUT_VARIABLES),
 
     calculateMonthlyPayment: node(calculateMonthlyPayment, {
-        principal: () => context.inputVariables.loanAmount,
-        months: () => context.inputVariables.termMonths,
-        annualRate: () => context.inputVariables.annualInterestRate,
+        principal: () => context.inputVariables().rows.loanAmount,
+        months: () => context.inputVariables().rows.termMonths,
+        annualRate: () => context.inputVariables().rows.annualInterestRate,
     }),
 
     generateLoanSchedule: node(generateLoanSchedule, {
-        loanAmount: () => context.inputVariables.loanAmount,
+        loanAmount: () => context.inputVariables().rows.loanAmount,
         monthlyPayment: () => context.calculateMonthlyPayment().monthlyPayment,
-        annualInterestRate: () => context.inputVariables.annualInterestRate,
-        termMonths: () => context.inputVariables.termMonths,
-        startDate: () => context.inputVariables.startDate,
+        annualInterestRate: () => context.inputVariables().rows.annualInterestRate,
+        termMonths: () => context.inputVariables().rows.termMonths,
+        startDate: () => context.inputVariables().rows.startDate,
     }),
 
     renderLoanBalanceChart: chartNode("renderLoanBalanceChart", {
         input: () => context.generateLoanSchedule().loanSchedule,
     }),
+
+    renderLoanScheduleTable: outputTableNode("renderLoanScheduleTable", {
+        rows: () => context.generateLoanSchedule().loanSchedule,
+    }),
 });
 
 if (import.meta.main) {
     const workbook = {} as any;
-    const nodes = defineWorkbook(workbook);
+    const nodes = myWorkbook(workbook);
     Object.assign(workbook, nodes);
 
     console.log("Starting pull execution...");
     workbook.renderLoanBalanceChart();
+    workbook.renderLoanScheduleTable();
 
     console.log("Execution Trace:");
     console.log(JSON.stringify(TRACE_STORE, null, 4));

@@ -1,10 +1,10 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { defineWorkbook, getFromTrace, clearTrace, trace } from "./main.ts";
+import { myWorkbook, getFromTrace, clearTrace, trace } from "./main.ts";
 
 Deno.test("Pull execution: leaf node triggers upstream chain", () => {
     clearTrace();
     const workbook = {} as any;
-    const nodes = defineWorkbook(workbook);
+    const nodes = myWorkbook(workbook);
     Object.assign(workbook, nodes);
 
     // Initial state: nothing in trace
@@ -28,7 +28,7 @@ Deno.test("Pull execution: leaf node triggers upstream chain", () => {
 Deno.test("Mapping: calculateMonthlyPayment uses correct inputs", () => {
     clearTrace();
     const workbook = {} as any;
-    const nodes = defineWorkbook(workbook);
+    const nodes = myWorkbook(workbook);
     Object.assign(workbook, nodes);
 
     workbook.renderLoanBalanceChart();
@@ -49,7 +49,7 @@ Deno.test("Mapping: calculateMonthlyPayment uses correct inputs", () => {
 Deno.test("Memoization: subsequent calls use trace", () => {
     clearTrace();
     const workbook = {} as any;
-    const nodes = defineWorkbook(workbook);
+    const nodes = myWorkbook(workbook);
     Object.assign(workbook, nodes);
 
     // First call
