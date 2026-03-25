@@ -73,6 +73,65 @@ test("Engine: Reactive mutation and invalidation", async () => {
     engine.dispose();
 });
 
+test("Engine: Full Reactive Lifecycle with multi-node dependencies", async () => {
+    const engine = new OpenModelTSEngine();
+    
+    await engine.loadProject({
+        "/bindings.ts": BINDINGS_CONTENT,
+        "/main.ts": `
+            import { node, inputListNode, evalWorkbook } from "./bindings";
+            
+            const getIn = inputListNode("myIn", 10);
+            
+            let calcACalls = 0;
+            const calcA = node(function calcA() { 
+                calcACalls++;
+                return getIn().rows + 1; 
+            });
+            
+            let calcBCalls = 0;
+            const calcB = node(function calcB() { 
+                calcBCalls++;
+                return calcA() * 2; 
+            });
+            
+            const workbook = (context) => ({
+                myIn: getIn,
+                calcA: calcA,
+                calcB: calcB
+            });
+
+            export function runA() { return evalWorkbook(workbook, "calcA"); }
+            export function runB() { return evalWorkbook(workbook, "calcB"); }
+            export function getCalls() { return { a: calcACalls, b: calcBCalls }; }
+        `
+    });
+
+    await engine.boot();
+    
+    // 1. Initial execution of B (triggers A)
+    strictEqual(engine.execute("runB"), 22);
+    let calls = engine.execute("getCalls");
+    strictEqual(calls.a, 1);
+    strictEqual(calls.b, 1);
+    
+    // 2. Execution of A (should be memoized)
+    strictEqual(engine.execute("runA"), 11);
+    calls = engine.execute("getCalls");
+    strictEqual(calls.a, 1);
+    
+    // 3. Mutate Input
+    engine.mutate("myIn", 20);
+    
+    // 4. Execution of B again (triggers A again)
+    strictEqual(engine.execute("runB"), 42);
+    calls = engine.execute("getCalls");
+    strictEqual(calls.a, 2);
+    strictEqual(calls.b, 2);
+    
+    engine.dispose();
+});
+
 test("Engine: Happy path with real loan-schedule demo", async () => {
     const engine = new OpenModelTSEngine({ debug: true });
     
