@@ -1,7 +1,6 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists } from "https://deno.land/std@0.220.1/assert/mod.ts";
 import { 
-    myWorkbook, 
-    eval_myWorkbook 
+    myWorkbook
 } from "../demo/loan-schedule/main.ts";
 import { 
     clearTrace, 

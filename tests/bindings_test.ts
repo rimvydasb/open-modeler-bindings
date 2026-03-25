@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assertThrows } from "@std/assert";
+import { assertEquals, assertThrows } from "https://deno.land/std@0.220.1/assert/mod.ts";
 import { 
     node, 
     inputListNode, 

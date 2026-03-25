@@ -23,8 +23,8 @@ export function evalWorkbook<T extends Record<string, any>>(
     Object.assign(context, workbook);
 
     if (typeof workbook[nodeName] === 'function') {
-        workbook[nodeName]();
-        return TRACE_STORE;
+        const res = (workbook[nodeName] as any)();
+        return res;
     }
     throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
 }
@@ -141,13 +141,13 @@ export function node<T, P extends object>(
 export function chartNode<T>(
     nodeName: string,
     inputs: { input: T | (() => T) }
-): () => void {
+): () => T {
     return () => {
         registerDependency(nodeName);
         
         const nodeTrace = TRACE_STORE[nodeName];
         if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-            return;
+            return nodeTrace.output;
         }
 
         const previousEvaluator = ACTIVE_EVALUATING_NODE;
@@ -158,23 +158,24 @@ export function chartNode<T>(
         ACTIVE_EVALUATING_NODE = previousEvaluator;
         
         if (!TRACE_STORE[nodeName]) TRACE_STORE[nodeName] = {};
-        TRACE_STORE[nodeName].output = null;
+        TRACE_STORE[nodeName].output = data;
         TRACE_STORE[nodeName].stale = false;
 
         console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
+        return data;
     };
 }
 
 export function outputTableNode<T>(
     tableName: string,
     inputs: { rows: T[] | (() => T[]) }
-): () => void {
+): () => T[] {
     return () => {
         registerDependency(tableName);
 
         const nodeTrace = TRACE_STORE[tableName];
         if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-            return;
+            return nodeTrace.output;
         }
 
         const previousEvaluator = ACTIVE_EVALUATING_NODE;
@@ -185,10 +186,11 @@ export function outputTableNode<T>(
         ACTIVE_EVALUATING_NODE = previousEvaluator;
 
         if (!TRACE_STORE[tableName]) TRACE_STORE[tableName] = {};
-        TRACE_STORE[tableName].output = null;
+        TRACE_STORE[tableName].output = data;
         TRACE_STORE[tableName].stale = false;
 
         console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
+        return data;
     };
 }
 

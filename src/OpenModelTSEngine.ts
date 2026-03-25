@@ -1,0 +1,220 @@
+import { Project } from "https://esm.sh/ts-morph@21.0.1";
+import { getQuickJS, QuickJSHandle, QuickJSContext } from "https://esm.sh/quickjs-emscripten@0.23.0";
+
+/**
+ * Manages QuickJS handles for automatic cleanup.
+ */
+class Scope {
+    private handles: QuickJSHandle[] = [];
+
+    manage<T extends QuickJSHandle>(handle: T): T {
+        this.handles.push(handle);
+        return handle;
+    }
+
+    dispose() {
+        for (const handle of this.handles) {
+            if (handle.alive) handle.dispose();
+        }
+        this.handles = [];
+    }
+}
+
+export interface EngineOptions {
+    debug?: boolean;
+}
+
+export class OpenModelTSEngine {
+    private project: Project;
+    private jsCode: string = "";
+    private vm: QuickJSContext | null = null;
+    private options: EngineOptions;
+
+    constructor(options: EngineOptions = {}) {
+        this.options = options;
+        this.project = new Project({
+            compilerOptions: {
+                target: 7, // ESNext
+                module: 0, // None
+                lib: ["esnext"],
+                alwaysStrict: false
+            },
+            useInMemoryFileSystem: true
+        });
+    }
+
+    /**
+     * Transpiles the provided TypeScript files and prepares the internal JavaScript bundle.
+     */
+    async loadProject(entryPoints: string[] | Record<string, string>): Promise<void> {
+        if (Array.isArray(entryPoints)) {
+            for (const path of entryPoints) {
+                if (this.options.debug) console.log(`[OpenModelTSEngine] Adding source file from path: ${path}`);
+                const content = await Deno.readTextFile(path);
+                this.project.createSourceFile(path, content, { overwrite: true });
+            }
+        } else {
+            for (const [path, content] of Object.entries(entryPoints)) {
+                if (this.options.debug) console.log(`[OpenModelTSEngine] Adding virtual source file: ${path}`);
+                this.project.createSourceFile(path, content, { overwrite: true });
+            }
+        }
+
+        const emitResult = this.project.emitToMemory();
+        const files = emitResult.getFiles();
+        if (this.options.debug) console.log(`[OpenModelTSEngine] Emitted ${files.length} files to memory.`);
+
+        let frameworkJs = "";
+        let otherJs = "";
+
+        for (const file of files) {
+            let text = file.text;
+            if (this.options.debug) console.log(`[OpenModelTSEngine] Processing emitted file: ${file.filePath}`);
+            text = this.sanitize(text);
+            
+            // Prioritize framework/bindings to ensure they are defined before use
+            if (file.filePath.endsWith("bindings.js") || file.filePath.endsWith("reactive_graph.js")) {
+                frameworkJs += `\n// --- ${file.filePath} ---\n` + text;
+            } else {
+                otherJs += `\n// --- ${file.filePath} ---\n` + text;
+            }
+        }
+
+        this.jsCode = "const exports = {};\nvar global = globalThis;\n" + frameworkJs + otherJs;
+        
+        if (this.options.debug) {
+            console.log("[OpenModelTSEngine] Project transpiled successfully. Total length:", this.jsCode.length);
+        }
+    }
+
+    private sanitize(js: string): string {
+        let code = js;
+        code = code.replace(/^"use strict";/gm, "");
+        code = code.replace(/^const TRACE_STORE =/gm, "var TRACE_STORE ="); 
+        code = code.replace(/^export /gm, "");
+        code = code.replace(/^import .* from .*$/gm, ""); 
+        code = code.replace(/^const .* = require\(.*\);$/gm, "");
+        code = code.replace(/^Object\.defineProperty\(exports,.*$/gm, "");
+        code = code.replace(/^exports\..* = void 0;.*$/gm, "");
+        code = code.replace(/exports\.(\w+) = \1;/g, "");
+        code = code.replace(/exports\./gm, "");
+
+        code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, "$1");
+        code = code.replace(/\w+\.(\w+)/g, (match, p1) => {
+            if (match.includes("_ts_")) return p1;
+            return match;
+        });
+
+        code = code.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, "");
+        
+        return code;
+    }
+
+    /**
+     * Initializes the QuickJS environment and evaluates the prepared JavaScript bundle.
+     */
+    async boot(): Promise<void> {
+        const QuickJS = await getQuickJS();
+        this.vm = QuickJS.newContext();
+
+        const scope = new Scope();
+        try {
+            const logFn = scope.manage(this.vm.newFunction("log", (...args: QuickJSHandle[]) => {
+                const nativeArgs = args.map(arg => this.vm!.dump(arg));
+                if (this.options.debug) {
+                    console.log("[VM Log]", ...nativeArgs);
+                }
+            }));
+            const consoleObj = scope.manage(this.vm.newObject());
+            this.vm.setProp(consoleObj, "log", logFn);
+            this.vm.setProp(this.vm.global, "console", consoleObj);
+        } finally {
+            scope.dispose();
+        }
+
+        const evalResult = this.vm.evalCode(this.jsCode);
+        if (evalResult.error) {
+            const error = this.vm.dump(evalResult.error);
+            evalResult.error.dispose();
+            throw new Error(`VM Init Failed: ${JSON.stringify(error)}`);
+        }
+        evalResult.value.dispose();
+    }
+
+    /**
+     * Calls a global function defined in the loaded project.
+     */
+    execute<T = any>(functionName: string, ...args: any[]): T {
+        if (!this.vm) throw new Error("Engine not booted. Call boot() first.");
+        return this.callVm(functionName, ...args);
+    }
+
+    /**
+     * Host-side trigger to update input nodes.
+     */
+    mutate<T>(nodeName: string, value: T): void {
+        if (!this.vm) throw new Error("Engine not booted. Call boot() first.");
+        this.callVm("mutateInput", nodeName, value);
+    }
+
+    private callVm(methodName: string, ...args: any[]) {
+        if (!this.vm) throw new Error("VM not initialized");
+        
+        const scope = new Scope();
+        try {
+            const fnHandle = scope.manage(this.vm.getProp(this.vm.global, methodName));
+            
+            if (this.vm.typeof(fnHandle) !== "function") {
+                throw new Error(`Method "${methodName}" not found in VM scope`);
+            }
+
+            const vmArgs = args.map(arg => {
+                if (typeof arg === "string") return scope.manage(this.vm!.newString(arg));
+                if (typeof arg === "number") return scope.manage(this.vm!.newNumber(arg));
+                if (typeof arg === "boolean") return arg ? this.vm!.true : this.vm!.false;
+                if (arg === undefined) return this.vm!.undefined;
+                if (arg === null) return this.vm!.null;
+                
+                // Use parseJSON if available, fallback to eval if typing is problematic
+                const jsonStr = JSON.stringify(arg);
+                try {
+                    return scope.manage((this.vm! as any).parseJSON(jsonStr));
+                } catch {
+                    const handle = this.vm!.evalCode(`JSON.parse(${JSON.stringify(jsonStr)})`);
+                    if (handle.error) {
+                        handle.error.dispose();
+                        throw new Error(`Failed to parse JSON in VM: ${jsonStr}`);
+                    }
+                    return scope.manage(handle.value);
+                }
+            });
+
+            const result = this.vm.callFunction(fnHandle, this.vm.undefined, ...vmArgs);
+            
+            if (result.error) {
+                const errorHandle = scope.manage(result.error);
+                throw new Error(`[VM Runtime Error in ${methodName}]: ${JSON.stringify(this.vm.dump(errorHandle))}`);
+            }
+
+            const out = this.vm.dump(result.value);
+            result.value.dispose();
+            return out;
+        } finally {
+            scope.dispose();
+        }
+    }
+
+    dispose(): void {
+        if (this.vm) {
+            this.vm.dispose();
+            this.vm = null;
+        }
+    }
+
+    /**
+     * Internal access to the transpiled JS for debugging/inspection.
+     */
+    getTranspiledCode(): string {
+        return this.jsCode;
+    }
+}
