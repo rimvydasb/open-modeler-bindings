@@ -8,7 +8,7 @@ import {
     getFromTrace, 
     validateWorkbook, 
     getTopologicalOrder 
-} from "../src/reactive_graph.ts";
+} from "../src/bindings.ts";
 
 Deno.test("Loan Schedule: basic execution triggers upstream chain", () => {
     clearTrace();

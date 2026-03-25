@@ -5,7 +5,7 @@ import {
     outputTableNode, 
     evalWorkbook,
     mutateInput
-} from "../../src/reactive_graph.ts";
+} from "../../src/bindings.ts";
 import { calculateMonthlyPayment, generateLoanSchedule } from "./library.ts";
 import { LoanInputs } from "./types.ts";
 

@@ -52,7 +52,7 @@ const files = emitResult.getFiles();
 
 // Concatenate files in order: framework, library, then main
 let jsCode = "";
-const order = ["reactive_graph.js", "types.js", "library.js", "main.js"];
+const order = ["bindings.js", "types.js", "library.js", "main.js"];
 
 for (const name of order) {
     const file = files.find((f: { filePath: string; text: string }) => f.filePath.endsWith(name));
@@ -72,7 +72,7 @@ jsCode = jsCode.replace(/^exports\..* = void 0;.*$/gm, "");
 jsCode = jsCode.replace(/exports\.(\w+) = \1;/g, "");
 jsCode = jsCode.replace(/exports\./gm, "");
 
-// NEW: Strip module prefixes like (0, reactive_graph_ts_1.node) or library_ts_1.func
+// NEW: Strip module prefixes like (0, bindings_ts_1.node) or library_ts_1.func
 jsCode = jsCode.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, "$1");
 jsCode = jsCode.replace(/\w+\.(\w+)/g, (match, p1) => {
     // List of prefixes to ignore if needed, but for now, we strip everything before the dot 
