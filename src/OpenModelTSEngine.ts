@@ -1,5 +1,6 @@
-import { Project } from "https://esm.sh/ts-morph@21.0.1";
-import { getQuickJS, QuickJSHandle, QuickJSContext } from "https://esm.sh/quickjs-emscripten@0.23.0";
+import { Project } from "ts-morph";
+import { getQuickJS, QuickJSHandle, QuickJSContext } from "quickjs-emscripten";
+import { readFileSync } from "node:fs";
 
 /**
  * Manages QuickJS handles for automatic cleanup.
@@ -50,7 +51,7 @@ export class OpenModelTSEngine {
         if (Array.isArray(entryPoints)) {
             for (const path of entryPoints) {
                 if (this.options.debug) console.log(`[OpenModelTSEngine] Adding source file from path: ${path}`);
-                const content = await Deno.readTextFile(path);
+                const content = readFileSync(path, "utf-8");
                 this.project.createSourceFile(path, content, { overwrite: true });
             }
         } else {

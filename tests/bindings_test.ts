@@ -1,15 +1,15 @@
-import { assertEquals, assertThrows } from "https://deno.land/std@0.220.1/assert/mod.ts";
+import { test } from "node:test";
+import { strictEqual, throws } from "node:assert/strict";
 import { 
     node, 
     inputListNode, 
     mutateInput,
     clearTrace,
     getFromTrace,
-    validateWorkbook,
-    getTopologicalOrder
+    validateWorkbook
 } from "../src/bindings.ts";
 
-Deno.test("Framework: memoization avoids redundant execution", () => {
+test("Framework: memoization avoids redundant execution", () => {
     clearTrace();
     let callCount = 0;
     const testWorkbookLoader = (context: any) => ({
@@ -25,10 +25,10 @@ Deno.test("Framework: memoization avoids redundant execution", () => {
     workbook.nodeA();
     workbook.nodeA();
     
-    assertEquals(callCount, 1, "Business logic should only be called once due to memoization");
+    strictEqual(callCount, 1, "Business logic should only be called once due to memoization");
 });
 
-Deno.test("Framework: mutateInput invalidates downstream nodes", () => {
+test("Framework: mutateInput invalidates downstream nodes", () => {
     clearTrace();
     let callCount = 0;
     const testWorkbookLoader = (context: any) => ({
@@ -44,20 +44,20 @@ Deno.test("Framework: mutateInput invalidates downstream nodes", () => {
 
     // 1. Initial Pull
     const res1 = workbook.calc();
-    assertEquals(res1, 11);
-    assertEquals(callCount, 1);
+    strictEqual(res1, 11);
+    strictEqual(callCount, 1);
 
     // 2. Push (Mutation)
     mutateInput("input", { val: 5 });
-    assertEquals(getFromTrace("calc.stale"), true, "Downstream node should be marked stale");
+    strictEqual(getFromTrace("calc.stale"), true, "Downstream node should be marked stale");
 
     // 3. Second Pull (Targeted)
     const res2 = workbook.calc();
-    assertEquals(res2, 15);
-    assertEquals(callCount, 2);
+    strictEqual(res2, 15);
+    strictEqual(callCount, 2);
 });
 
-Deno.test("Framework: unrelated mutations do not invalidate siblings", () => {
+test("Framework: unrelated mutations do not invalidate siblings", () => {
     clearTrace();
     let calcACount = 0;
     let calcBCount = 0;
@@ -83,14 +83,14 @@ Deno.test("Framework: unrelated mutations do not invalidate siblings", () => {
     
     mutateInput("inputA", { val: 10 });
     
-    assertEquals(getFromTrace("calcA.stale"), true);
-    assertEquals(getFromTrace("calcB.stale"), false);
+    strictEqual(getFromTrace("calcA.stale"), true);
+    strictEqual(getFromTrace("calcB.stale"), false);
 
     workbook.calcB();
-    assertEquals(calcBCount, 1);
+    strictEqual(calcBCount, 1);
 });
 
-Deno.test("Framework: detect circular dependencies", () => {
+test("Framework: detect circular dependencies", () => {
     clearTrace();
     const circularWorkbook = (context: any) => ({
         nodeA: node(function nodeA() { return (context.nodeB?.() || 0) + 1; }, {
@@ -101,9 +101,8 @@ Deno.test("Framework: detect circular dependencies", () => {
         })
     });
 
-    assertThrows(
+    throws(
         () => validateWorkbook(circularWorkbook),
-        Error,
-        "Circular dependency detected"
+        { message: /Circular dependency detected/ }
     );
 });

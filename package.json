@@ -1,0 +1,25 @@
+{
+  "name": "open-modeler-bindings",
+  "version": "0.1.0",
+  "description": "TypeScript execution engine for Open Modeler",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "test": "tsx --test tests/*.ts",
+    "build": "tsc",
+    "dev": "node --watch src/main.ts"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "ts-morph": "^27.0.2",
+    "quickjs-emscripten": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "typescript": "^6.0.2",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0"
+  }
+  }

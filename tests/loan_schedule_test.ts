@@ -1,4 +1,5 @@
-import { assertEquals, assertExists } from "https://deno.land/std@0.220.1/assert/mod.ts";
+import { test } from "node:test";
+import { strictEqual, ok } from "node:assert/strict";
 import { 
     myWorkbook
 } from "../demo/loan-schedule/main.ts";
@@ -9,7 +10,7 @@ import {
     getTopologicalOrder 
 } from "../src/bindings.ts";
 
-Deno.test("Loan Schedule: basic execution triggers upstream chain", () => {
+test("Loan Schedule: basic execution triggers upstream chain", () => {
     clearTrace();
     const workbook = {} as any;
     const nodes = myWorkbook(workbook);
@@ -19,11 +20,11 @@ Deno.test("Loan Schedule: basic execution triggers upstream chain", () => {
     nodes.renderLoanBalanceChart();
 
     // Verify upstream nodes were executed and traced
-    assertExists(getFromTrace("calculateMonthlyPayment.output"));
-    assertExists(getFromTrace("generateLoanSchedule.output"));
+    ok(getFromTrace("calculateMonthlyPayment.output"));
+    ok(getFromTrace("generateLoanSchedule.output"));
 });
 
-Deno.test("Loan Schedule: topological sort returns correct order", () => {
+test("Loan Schedule: topological sort returns correct order", () => {
     clearTrace();
     validateWorkbook(myWorkbook);
     const order = getTopologicalOrder();
@@ -32,10 +33,10 @@ Deno.test("Loan Schedule: topological sort returns correct order", () => {
     const idxCalc = order.indexOf("calculateMonthlyPayment");
     const idxSchedule = order.indexOf("generateLoanSchedule");
 
-    assertExists(idxInput !== -1);
-    assertExists(idxCalc !== -1);
-    assertExists(idxSchedule !== -1);
+    ok(idxInput !== -1);
+    ok(idxCalc !== -1);
+    ok(idxSchedule !== -1);
     
-    assertEquals(idxInput < idxCalc, true, "Source must come before dependent");
-    assertEquals(idxCalc < idxSchedule, true, "Source must come before dependent");
+    strictEqual(idxInput < idxCalc, true, "Source must come before dependent");
+    strictEqual(idxCalc < idxSchedule, true, "Source must come before dependent");
 });
