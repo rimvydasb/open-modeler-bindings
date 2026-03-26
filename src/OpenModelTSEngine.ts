@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { getQuickJS, QuickJSHandle, QuickJSContext } from "quickjs-emscripten";
+import { getQuickJS, QuickJSContext, type QuickJSHandle } from "quickjs-emscripten";
 import { readFileSync } from "node:fs";
 
 /**
