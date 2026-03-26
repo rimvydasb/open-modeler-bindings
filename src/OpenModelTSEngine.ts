@@ -1,6 +1,5 @@
 import { Project } from "ts-morph";
 import { getQuickJS, QuickJSContext, type QuickJSHandle } from "quickjs-emscripten";
-import { readFileSync } from "node:fs";
 
 /**
  * Manages QuickJS handles for automatic cleanup.
@@ -25,6 +24,10 @@ export interface EngineOptions {
     debug?: boolean;
 }
 
+/**
+ * OpenModel Engine for TypeScript projects.
+ * Developed to be working on web browsers.
+ */
 export class OpenModelTSEngine {
     private project: Project;
     private jsCode: string = "";
@@ -47,18 +50,10 @@ export class OpenModelTSEngine {
     /**
      * Transpiles the provided TypeScript files and prepares the internal JavaScript bundle.
      */
-    async loadProject(entryPoints: string[] | Record<string, string>): Promise<void> {
-        if (Array.isArray(entryPoints)) {
-            for (const path of entryPoints) {
-                if (this.options.debug) console.log(`[OpenModelTSEngine] Adding source file from path: ${path}`);
-                const content = readFileSync(path, "utf-8");
-                this.project.createSourceFile(path, content, { overwrite: true });
-            }
-        } else {
-            for (const [path, content] of Object.entries(entryPoints)) {
-                if (this.options.debug) console.log(`[OpenModelTSEngine] Adding virtual source file: ${path}`);
-                this.project.createSourceFile(path, content, { overwrite: true });
-            }
+    async loadProject(entryPoints: Record<string, string>): Promise<void> {
+        for (const [path, content] of Object.entries(entryPoints)) {
+            if (this.options.debug) console.log(`[OpenModelTSEngine] Adding virtual source file: ${path}`);
+            this.project.createSourceFile(path, content, { overwrite: true });
         }
 
         const emitResult = this.project.emitToMemory();
