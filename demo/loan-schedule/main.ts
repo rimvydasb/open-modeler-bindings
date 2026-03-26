@@ -42,16 +42,9 @@ export const myWorkbook = (context: any) => ({
     }),
 });
 
-/**
- * Specifically evaluates a node in myWorkbook and returns the execution trace.
- */
-export function eval_myWorkbook(nodeName: string): any {
-    return evalWorkbook(myWorkbook, nodeName as any);
-}
-
 if (import.meta.main) {
     console.log("--- Initial Evaluation ---");
-    eval_myWorkbook("renderLoanScheduleTable");
+    evalWorkbook(myWorkbook, "renderLoanScheduleTable");
 
     console.log("\n--- Mutating Input (Push) ---");
     mutateInput("inputVariables", {
@@ -60,5 +53,5 @@ if (import.meta.main) {
     });
 
     console.log("\n--- Second Evaluation (Targeted Pull) ---");
-    eval_myWorkbook("renderLoanScheduleTable");
+    evalWorkbook(myWorkbook, "renderLoanScheduleTable");
 }

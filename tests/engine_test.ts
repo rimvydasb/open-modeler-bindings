@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import { strictEqual, rejects, ok } from "node:assert/strict";
 import { readFileSync, realpathSync } from "node:fs";
-import { OpenModelTSEngine } from "../src/OpenModelTSEngine.ts";
+import { OpenModelTSEngine, vmRef } from "../src/OpenModelTSEngine.ts";
+import { loadFiles } from "../src/node-utils.ts";
 
 const BINDINGS_CONTENT = readFileSync("src/bindings.ts", "utf-8");
 
@@ -136,22 +137,24 @@ test("Engine: Happy path with real loan-schedule demo", async () => {
     const engine = new OpenModelTSEngine({ debug: true });
     
     // Load real files from the file system
-    await engine.loadProject([
-        realpathSync("src/bindings.ts"),
-        realpathSync("demo/loan-schedule/types.ts"),
-        realpathSync("demo/loan-schedule/library.ts"),
-        realpathSync("demo/loan-schedule/main.ts")
-    ]);
+    await engine.loadProject(loadFiles([
+        "src/bindings.ts",
+        "demo/loan-schedule/types.ts",
+        "demo/loan-schedule/library.ts",
+        "demo/loan-schedule/main.ts"
+    ]));
 
     await engine.boot();
 
     try {
         // 1. Initial Pull
-        const table = engine.execute("eval_myWorkbook", "renderLoanScheduleTable");
+        const table = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
         ok(table);
         strictEqual(Array.isArray(table), true);
         strictEqual(table.length, 12); // Default is 12 months
-        
+
+        engine.executeWorkbook("myWorkbook", "renderLoanBalanceChart");
+
         // 2. Mutate and Verify
         engine.mutate("inputVariables", {
             loanAmount: 100000,
@@ -160,7 +163,7 @@ test("Engine: Happy path with real loan-schedule demo", async () => {
             startDate: new Date('2026-04-01').toISOString() // QuickJS needs ISO or similar
         });
         
-        const updatedTable = engine.execute("eval_myWorkbook", "renderLoanScheduleTable");
+        const updatedTable = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
         strictEqual(updatedTable.length, 24);
     } catch (e) {
         console.log("Transpiled Code:\n", engine.getTranspiledCode());

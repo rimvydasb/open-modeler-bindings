@@ -270,6 +270,7 @@ export function validateWorkbook(workbookLoader: (context: any) => any): void {
  * Framework method to mutate an input and invalidate downstream dependencies.
  */
 export function mutateInput<T>(nodeName: string, newData: T): void {
+    console.log(`[Mutate ${nodeName}] updated with new data.`);
     if (!TRACE_STORE[nodeName]) TRACE_STORE[nodeName] = {};
     TRACE_STORE[nodeName].output = { rows: newData };
     TRACE_STORE[nodeName].stale = false;

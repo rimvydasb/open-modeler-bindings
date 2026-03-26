@@ -1,5 +1,5 @@
-import { Project } from "ts-morph";
-import { getQuickJS, QuickJSContext, type QuickJSHandle } from "quickjs-emscripten";
+import {Project} from "ts-morph";
+import {getQuickJS, QuickJSContext, type QuickJSHandle} from "quickjs-emscripten";
 
 /**
  * Manages QuickJS handles for automatic cleanup.
@@ -23,6 +23,18 @@ class Scope {
 export interface EngineOptions {
     debug?: boolean;
 }
+
+/**
+ * A reference to a variable that already exists in the VM's global scope.
+ */
+export interface VmRef {
+    __vm_ref: string;
+}
+
+/**
+ * Helper to create a VM reference.
+ */
+export const vmRef = (name: string): VmRef => ({__vm_ref: name});
 
 /**
  * OpenModel Engine for TypeScript projects.
@@ -53,7 +65,7 @@ export class OpenModelTSEngine {
     async loadProject(entryPoints: Record<string, string>): Promise<void> {
         for (const [path, content] of Object.entries(entryPoints)) {
             if (this.options.debug) console.log(`[OpenModelTSEngine] Adding virtual source file: ${path}`);
-            this.project.createSourceFile(path, content, { overwrite: true });
+            this.project.createSourceFile(path, content, {overwrite: true});
         }
 
         const emitResult = this.project.emitToMemory();
@@ -67,7 +79,7 @@ export class OpenModelTSEngine {
             let text = file.text;
             if (this.options.debug) console.log(`[OpenModelTSEngine] Processing emitted file: ${file.filePath}`);
             text = this.sanitize(text);
-            
+
             // Prioritize framework/bindings to ensure they are defined before use
             if (file.filePath.endsWith("bindings.js") || file.filePath.endsWith("reactive_graph.js")) {
                 frameworkJs += `\n// --- ${file.filePath} ---\n` + text;
@@ -77,7 +89,7 @@ export class OpenModelTSEngine {
         }
 
         this.jsCode = "const exports = {};\nvar global = globalThis;\n" + frameworkJs + otherJs;
-        
+
         if (this.options.debug) {
             console.log("[OpenModelTSEngine] Project transpiled successfully. Total length:", this.jsCode.length);
         }
@@ -86,13 +98,22 @@ export class OpenModelTSEngine {
     private sanitize(js: string): string {
         let code = js;
         code = code.replace(/^"use strict";/gm, "");
-        code = code.replace(/^const TRACE_STORE =/gm, "var TRACE_STORE ="); 
+
+        // Replace 'export const', 'export let', 'export function', etc. with global declarations
+        code = code.replace(/^export const /gm, "var ");
+        code = code.replace(/^export let /gm, "var ");
+        code = code.replace(/^export function /gm, "function ");
+        code = code.replace(/^export class /gm, "var ");
+
+        code = code.replace(/^const TRACE_STORE =/gm, "var TRACE_STORE =");
         code = code.replace(/^export /gm, "");
-        code = code.replace(/^import .* from .*$/gm, ""); 
+        code = code.replace(/^import .* from .*$/gm, "");
         code = code.replace(/^const .* = require\(.*\);$/gm, "");
         code = code.replace(/^Object\.defineProperty\(exports,.*$/gm, "");
         code = code.replace(/^exports\..* = void 0;.*$/gm, "");
-        code = code.replace(/exports\.(\w+) = \1;/g, "");
+
+        // Convert exports.foo = ... to globalThis.foo = ...
+        code = code.replace(/exports\.(\w+) =/gm, "globalThis.$1 =");
         code = code.replace(/exports\./gm, "");
 
         code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, "$1");
@@ -102,7 +123,7 @@ export class OpenModelTSEngine {
         });
 
         code = code.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, "");
-        
+
         return code;
     }
 
@@ -146,6 +167,16 @@ export class OpenModelTSEngine {
     }
 
     /**
+     * Evaluates Workbook
+     *
+     * @param workbookName
+     * @param nodeName
+     */
+    executeWorkbook(workbookName: string, nodeName: string): any {
+        return this.execute("evalWorkbook", vmRef(workbookName), nodeName);
+    }
+
+    /**
      * Host-side trigger to update input nodes.
      */
     mutate<T>(nodeName: string, value: T): void {
@@ -155,22 +186,25 @@ export class OpenModelTSEngine {
 
     private callVm(methodName: string, ...args: any[]) {
         if (!this.vm) throw new Error("VM not initialized");
-        
+
         const scope = new Scope();
         try {
             const fnHandle = scope.manage(this.vm.getProp(this.vm.global, methodName));
-            
+
             if (this.vm.typeof(fnHandle) !== "function") {
                 throw new Error(`Method "${methodName}" not found in VM scope`);
             }
 
             const vmArgs = args.map(arg => {
+                if (arg && typeof arg === "object" && "__vm_ref" in arg) {
+                    return scope.manage(this.vm!.getProp(this.vm!.global, (arg as VmRef).__vm_ref));
+                }
                 if (typeof arg === "string") return scope.manage(this.vm!.newString(arg));
                 if (typeof arg === "number") return scope.manage(this.vm!.newNumber(arg));
                 if (typeof arg === "boolean") return arg ? this.vm!.true : this.vm!.false;
                 if (arg === undefined) return this.vm!.undefined;
                 if (arg === null) return this.vm!.null;
-                
+
                 // Use parseJSON if available, fallback to eval if typing is problematic
                 const jsonStr = JSON.stringify(arg);
                 try {
@@ -186,7 +220,7 @@ export class OpenModelTSEngine {
             });
 
             const result = this.vm.callFunction(fnHandle, this.vm.undefined, ...vmArgs);
-            
+
             if (result.error) {
                 const errorHandle = scope.manage(result.error);
                 throw new Error(`[VM Runtime Error in ${methodName}]: ${JSON.stringify(this.vm.dump(errorHandle))}`);
