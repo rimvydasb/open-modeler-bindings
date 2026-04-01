@@ -11,10 +11,11 @@ The engine performs the following steps:
 1. **Transpilation**: Uses `ts-morph` to convert TypeScript source files into a single compatible JavaScript bundle.
 2. **Sanitization**: Post-processes the transpiled JS to remove module systems (ESM/CommonJS) and adapt it for a flat
    global scope.
-3. **Bootstrapping**: Initializes the QuickJS VM, sets up host bridges (e.g., `console.log`), and evaluates the
+3. **Bootstrapping**: Initializes the QuickJS VM, sets up host bridges (e.g., `console.log`, event emitters), and
+   evaluates the
    sanitized JS.
-4. **Execution**: Provides a typed interface to call functions within the VM with automatic JSON-based
-   serialization/deserialization.
+4. **Execution & Eventing**: Provides a typed interface to call functions, mutate inputs, and listen to asynchronous
+   lifecycle events (Host $\leftrightarrow$ VM).
 
 ## API Reference
 
@@ -28,6 +29,9 @@ classDiagram
         +boot() Promise~void~
         +execute~T~(functionName: string, args: any[]) T
         +mutate~T~(nodeName: string, value: T) void
+        +onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
+        +onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
+        +onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void) void
         +dispose() void
         -transpile()
         -sanitize()
@@ -73,6 +77,39 @@ environment and initiates the **Push Phase** (invalidation).
 - `value`: The new, raw data payload to assign to this node's output trace. The shape of `value` **must exactly match**
   the expected output shape of the node being mutated. The engine serializes this `value` to JSON and sends it into the
   VM, bypassing the node's original evaluator function to substitute its result directly.
+
+### Event Listener Methods (Under Design)
+
+The `OpenModelTSEngine` provides asynchronous event listeners to bridge the VM execution lifecycle back to the Host
+Environment.
+
+*Architectural Note: These methods represent the state-of-the-art eventing design currently being finalized.*
+
+####
+`onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void`
+
+- **Purpose:** Intercepts the execution flow immediately before a pure calculation `node` evaluates.
+- **Payload (`input`):** The fully resolved dependency object (arguments) that will be passed to the node's function.
+- **Use Case:** Profiling execution start times, debugging dependency resolution, or triggering "loading" states in the
+  UI for heavy formulas.
+
+####
+`onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void`
+
+- **Purpose:** Intercepts the execution flow immediately after a pure calculation `node` evaluates successfully.
+- **Payload (`output`):** The resulting named output object produced by the node.
+- **Use Case:** Telemetry, auditing business logic results, or caching intermediate calculation states without binding
+  them directly to UI components.
+
+#### `onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void): void`
+
+- **Purpose:** The primary bridge for UI reactivity. Triggered when a Sink Node (`chartNode`, `outputTableNode`)
+  receives new upstream data or an `inputListNode` is updated.
+- **Payload (`data`):** The raw data ready for visualization or UI consumption.
+- **Use Case:** Triggering state updates in the Host Application (e.g., React `setState`) to re-render charts, tables,
+  or update input forms dynamically.
+
+---
 
 ### Strategy & Reasoning: The `mutate` API
 
@@ -233,11 +270,25 @@ engine.dispose();
 - `quickjs-emscripten`: For the WASM-based JS VM.
 - `deno.land/std/path`: For path resolution.
 
-## Bindings
+## UI Bindings & Eventing Model
 
-| Node Type         | Description                                                    | Events                                          |
-|-------------------|----------------------------------------------------------------|-------------------------------------------------|
-| `inputListNode`   | Captures user inputs from GUI. Use `mutate` to trigger change. | `onNodeDataChanged`                             |
-| `node`            | Calculates provided function.                                  | `onBeforeNodeExecution`, `onAfterNodeExecution` |
-| `chartNode`       | Captures data to draw Chart in GUI.                            | `onNodeDataChanged`                             |
-| `outputTableNode` | Captures data to draw Table in GUI.                            | `onNodeDataChanged`                             |
+The framework strictly distinguishes between pure calculation nodes and UI-bound visualization nodes to preserve the
+purity of the domain model while offering a fast bridge to the Host Application.
+
+### The "Sink Node" Concept
+
+*Architectural Clarification:* `chartNode` and `outputTableNode` act as **Sink Nodes** (or Effect Nodes). Unlike pure
+calculation `node` instances, they do not produce new data meant for downstream consumption within the VM's Directed
+Acyclic Graph (DAG).
+
+Because inputs are visualized and they do not produce new domain data, **Sink Nodes bypass the `TRACE_STORE`**. Storing
+their results in the VM trace is redundant and uses unnecessary memory. Instead, their sole responsibility is to
+evaluate their upstream dependencies and push that data directly to the Host Environment by triggering the
+`onNodeDataChanged` event.
+
+| Node Type         | Architectural Role | VM Trace Behavior  | Associated Events                                  | Description                                                                          |
+|-------------------|--------------------|--------------------|----------------------------------------------------|--------------------------------------------------------------------------------------|
+| `inputListNode`   | Source Node        | Cached in Trace    | `onNodeDataChanged`                                | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation. |
+| `node`            | Calculation Node   | Cached in Trace    | `onBeforeNodeExecution`,<br>`onAfterNodeExecution` | Pure business logic computation. Memoizes results to prevent redundant calculation.  |
+| `chartNode`       | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.   |
+| `outputTableNode` | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Table rendering. Pushes data directly to the Host.   |
