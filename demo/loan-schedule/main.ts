@@ -7,7 +7,7 @@ import {
     mutateInput
 } from "../../src/bindings.ts";
 import { calculateMonthlyPayment, generateLoanSchedule } from "./library.ts";
-import { LoanInputs } from "./types.ts";
+import type { LoanInputs } from "./types.ts";
 
 export const INPUT_VARIABLES: LoanInputs = {
     loanAmount: 100000,
@@ -16,7 +16,8 @@ export const INPUT_VARIABLES: LoanInputs = {
     startDate: new Date('2026-04-01'),
 };
 
-export const myWorkbook = (context: any) => ({
+// deno-lint-ignore no-explicit-any
+export const myWorkbook = (context: Record<string, any>): Record<string, any> => ({
     inputVariables: inputListNode("inputVariables", INPUT_VARIABLES),
 
     calculateMonthlyPayment: node(calculateMonthlyPayment, {

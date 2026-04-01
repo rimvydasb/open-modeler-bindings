@@ -1,0 +1,16 @@
+{
+    "name": "@open-modeler/loan-schedule-demo",
+    "version": "0.1.0",
+    "description": "TypeScript/JavaScript bindings for Open Modeler - Loan Schedule Demo",
+    "type": "module",
+    "license": "MIT",
+    "author": "Rimvydas Bingelis",
+    "scripts": {
+        "dev": "tsx watch main.ts",
+        "start": "tsx main.ts"
+    },
+    "devDependencies": {
+        "tsx": "^4.0.0",
+        "typescript": "^5.0.0"
+    }
+}

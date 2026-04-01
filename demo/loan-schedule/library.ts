@@ -1,4 +1,4 @@
-import { PaymentLine } from "./types.ts";
+import type { PaymentLine } from "./types.ts";
 
 export function calculateMonthlyPayment({principal, annualRate, months}: {
     principal: number;
@@ -32,7 +32,7 @@ export function generateLoanSchedule({loanAmount, monthlyPayment, annualInterest
     const monthlyRate = annualInterestRate / 100 / 12;
 
     let currentBalance = loanAmount;
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     const schedule: PaymentLine[] = [];
 
     for (let month = 1; month <= termMonths; month++) {

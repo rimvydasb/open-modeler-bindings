@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import { strictEqual, rejects, ok } from "node:assert/strict";
-import { readFileSync, realpathSync } from "node:fs";
-import { OpenModelTSEngine, vmRef } from "../src/OpenModelTSEngine.ts";
+import { readFileSync } from "node:fs";
+import { OpenModelTSEngine } from "../src/OpenModelTSEngine.ts";
 import { loadFiles } from "../src/node-utils.ts";
 
 const BINDINGS_CONTENT = readFileSync("src/bindings.ts", "utf-8");
