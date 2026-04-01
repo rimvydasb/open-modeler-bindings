@@ -36,6 +36,9 @@ export interface VmRef {
  */
 export const vmRef = (name: string): VmRef => ({__vm_ref: name});
 
+export type NodeDataCallback = (data: any) => void;
+export type NodeExecutionCallback = (payload: Record<string, any>) => void;
+
 /**
  * OpenModel Engine for TypeScript projects.
  * Developed to be working on web browsers.
@@ -45,6 +48,10 @@ export class OpenModelTSEngine {
     private jsCode: string = "";
     private vm: QuickJSContext | null = null;
     private options: EngineOptions;
+
+    private beforeExecListeners = new Map<string, NodeExecutionCallback>();
+    private afterExecListeners = new Map<string, NodeExecutionCallback>();
+    private dataChangedListeners = new Map<string, NodeDataCallback>();
 
     constructor(options: EngineOptions = {}) {
         this.options = options;
@@ -145,6 +152,15 @@ export class OpenModelTSEngine {
             const consoleObj = scope.manage(this.vm.newObject());
             this.vm.setProp(consoleObj, "log", logFn);
             this.vm.setProp(this.vm.global, "console", consoleObj);
+
+            // Inject Event Emitter bridge
+            const emitEventFn = scope.manage(this.vm.newFunction("__emitEvent", (typeHandle: QuickJSHandle, payloadHandle: QuickJSHandle) => {
+                const type = this.vm!.dump(typeHandle);
+                const payload = this.vm!.dump(payloadHandle);
+                this.handleVmEvent(type, payload);
+            }));
+            this.vm.setProp(this.vm.global, "__emitEvent", emitEventFn);
+
         } finally {
             scope.dispose();
         }
@@ -156,6 +172,34 @@ export class OpenModelTSEngine {
             throw new Error(`VM Init Failed: ${JSON.stringify(error)}`);
         }
         evalResult.value.dispose();
+    }
+
+    private handleVmEvent(type: string, payload: any) {
+        if (type === 'beforeNodeExecution') {
+            const { nodeName, input } = payload;
+            const listener = this.beforeExecListeners.get(nodeName);
+            if (listener) listener(input);
+        } else if (type === 'afterNodeExecution') {
+            const { nodeName, output } = payload;
+            const listener = this.afterExecListeners.get(nodeName);
+            if (listener) listener(output);
+        } else if (type === 'nodeDataChanged') {
+            const { nodeName, data } = payload;
+            const listener = this.dataChangedListeners.get(nodeName);
+            if (listener) listener(data);
+        }
+    }
+
+    onBeforeNodeExecution(workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
+        this.beforeExecListeners.set(nodeName, callback);
+    }
+
+    onAfterNodeExecution(workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
+        this.afterExecListeners.set(nodeName, callback);
+    }
+
+    onNodeDataChanged(workbookName: string, nodeName: string, callback: NodeDataCallback): void {
+        this.dataChangedListeners.set(nodeName, callback);
     }
 
     /**
@@ -174,18 +218,6 @@ export class OpenModelTSEngine {
      */
     executeWorkbook(workbookName: string, nodeName: string): any {
         return this.execute("evalWorkbook", vmRef(workbookName), nodeName);
-    }
-
-    onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void {
-
-    }
-
-    onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void {
-
-    }
-
-    onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void): void {
-
     }
 
     /**

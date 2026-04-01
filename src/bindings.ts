@@ -2,8 +2,11 @@
  * Trace entry for a single node in the dependency graph.
  */
 export interface TraceEntry {
-    stale?: boolean;
+    /** The cached result of the node's calculation. Must be a named output (object). */
     output?: Record<string, any>;
+    /** Whether the node needs to be re-evaluated due to an upstream change. */
+    stale?: boolean;
+    /** The resolved input arguments used for the last calculation (always an object). */
     input?: Record<string, any>;
 }
 
@@ -26,6 +29,15 @@ let ACTIVE_EVALUATING_NODE: string | null = null;
  * Stack used to detect circular dependencies during node evaluation.
  */
 const EVALUATION_STACK: string[] = [];
+
+/**
+ * Internal event emitter to communicate with the Host Environment.
+ */
+function emitEvent(eventType: string, payload: any): void {
+    if (typeof (globalThis as any).__emitEvent === 'function') {
+        (globalThis as any).__emitEvent(eventType, payload);
+    }
+}
 
 /**
  * Generic evaluator for workbook-style dependency graphs.
@@ -104,7 +116,8 @@ function registerDependency(sourceNode: string): void {
  */
 function executeWithTracking<T>(
     nodeName: string,
-    evaluate: () => T
+    evaluate: () => T,
+    options: { skipCache?: boolean } = {}
 ): T {
     if (EVALUATION_STACK.includes(nodeName)) {
         throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${nodeName}`);
@@ -113,7 +126,7 @@ function executeWithTracking<T>(
     registerDependency(nodeName);
 
     let nodeTrace: TraceEntry = TRACE_STORE[nodeName];
-    if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
+    if (!options.skipCache && nodeTrace?.output !== undefined && !nodeTrace?.stale) {
         return nodeTrace.output as unknown as T;
     }
 
@@ -133,7 +146,9 @@ function executeWithTracking<T>(
             throw new Error(`Node "${nodeName}" must return a named output (object), but got ${typeof result}.`);
         }
 
-        nodeTrace.output = result as Record<string, any>;
+        if (!options.skipCache) {
+            nodeTrace.output = result as Record<string, any>;
+        }
         nodeTrace.stale = false;
         return result;
     } finally {
@@ -169,7 +184,12 @@ export function node<T extends Record<string, any>, P extends object>(
                 inputTrace[key] = value;
             }
         }
-        return invocation(completeInputs);
+
+        emitEvent('beforeNodeExecution', { nodeName, input: TRACE_STORE[nodeName].input });
+        const result = invocation(completeInputs);
+        emitEvent('afterNodeExecution', { nodeName, output: result });
+        
+        return result;
     });
 }
 
@@ -183,8 +203,11 @@ export function chartNode<T extends Record<string, any>>(
     return () => executeWithTracking(nodeName, () => {
         const data = resolveValue(inputs.input);
         console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
+        
+        emitEvent('nodeDataChanged', { nodeName, data });
+        
         return data;
-    });
+    }, { skipCache: true });
 }
 
 /**
@@ -197,8 +220,11 @@ export function outputTableNode<T extends Record<string, any>>(
     return () => executeWithTracking(tableName, () => {
         const data = resolveValue(inputs.rows);
         console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
+        
+        emitEvent('nodeDataChanged', { nodeName: tableName, data });
+        
         return data as unknown as T[];
-    }) as unknown as T[];
+    }, { skipCache: true }) as unknown as T[];
 }
 
 /**
@@ -210,7 +236,11 @@ export function inputListNode<T>(
 ): () => { rows: T } {
     return () => executeWithTracking(listName, () => {
         console.log(`[Input List: ${listName}] initialized.`);
-        return { rows: inputs };
+        const result = { rows: inputs };
+        
+        emitEvent('nodeDataChanged', { nodeName: listName, data: inputs });
+        
+        return result;
     });
 }
 
@@ -270,6 +300,8 @@ export function mutateInput<T>(nodeName: string, newData: T): void {
     }
     TRACE_STORE[nodeName].output = { rows: newData };
     TRACE_STORE[nodeName].stale = false;
+
+    emitEvent('nodeDataChanged', { nodeName, data: newData });
 
     invalidateDownstream(nodeName);
 }

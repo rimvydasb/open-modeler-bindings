@@ -133,8 +133,8 @@ test("Engine: Full Reactive Lifecycle with multi-node dependencies", async () =>
     engine.dispose();
 });
 
-test("Engine: Happy path with real loan-schedule demo", async () => {
-    const engine = new OpenModelTSEngine({ debug: true });
+test("Engine: Happy path with real loan-schedule demo and events", async () => {
+    const engine = new OpenModelTSEngine({ debug: false });
     
     // Load real files from the file system
     await engine.loadProject(loadFiles([
@@ -146,25 +146,59 @@ test("Engine: Happy path with real loan-schedule demo", async () => {
 
     await engine.boot();
 
+    let beforeCalled = false;
+    let afterCalled = false;
+    let dataChangedCalled = false;
+    let tableData: any = null;
+
+    engine.onBeforeNodeExecution("myWorkbook", "calculateMonthlyPayment", (input) => {
+        beforeCalled = true;
+        ok(input.principal, "Input should contain principal");
+    });
+
+    engine.onAfterNodeExecution("myWorkbook", "calculateMonthlyPayment", (output) => {
+        afterCalled = true;
+        ok(output.monthlyPayment, "Output should contain monthlyPayment");
+    });
+
+    engine.onNodeDataChanged("myWorkbook", "renderLoanScheduleTable", (data) => {
+        dataChangedCalled = true;
+        tableData = data;
+    });
+
     try {
         // 1. Initial Pull
         const table = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
         ok(table);
-        strictEqual(Array.isArray(table), true);
-        strictEqual(table.length, 12); // Default is 12 months
+        strictEqual(table.length, 12);
+        
+        ok(beforeCalled, "onBeforeNodeExecution should have been called");
+        ok(afterCalled, "onAfterNodeExecution should have been called");
+        ok(dataChangedCalled, "onNodeDataChanged should have been called");
+        deepStrictEqual(table, tableData, "Event data should match returned data");
 
-        engine.executeWorkbook("myWorkbook", "renderLoanBalanceChart");
+        // Reset flags for mutation test
+        dataChangedCalled = false;
+        let inputChangedCalled = false;
+        engine.onNodeDataChanged("myWorkbook", "inputVariables", (data) => {
+            inputChangedCalled = true;
+            strictEqual(data.loanAmount, 200000);
+        });
 
         // 2. Mutate and Verify
         engine.mutate("inputVariables", {
-            loanAmount: 100000,
+            loanAmount: 200000,
             annualInterestRate: 5.0,
             termMonths: 24,
-            startDate: new Date('2026-04-01').toISOString() // QuickJS needs ISO or similar
+            startDate: new Date('2026-04-01').toISOString()
         });
         
+        ok(inputChangedCalled, "onNodeDataChanged should be called for input mutation");
+
         const updatedTable = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
         strictEqual(updatedTable.length, 24);
+        ok(dataChangedCalled, "onNodeDataChanged should be called after mutation pull");
+
     } catch (e) {
         console.log("Transpiled Code:\n", engine.getTranspiledCode());
         throw e;
