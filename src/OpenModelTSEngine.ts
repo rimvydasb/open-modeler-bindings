@@ -190,15 +190,15 @@ export class OpenModelTSEngine {
         }
     }
 
-    onBeforeNodeExecution(workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
+    onBeforeNodeExecution(_workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
         this.beforeExecListeners.set(nodeName, callback);
     }
 
-    onAfterNodeExecution(workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
+    onAfterNodeExecution(_workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
         this.afterExecListeners.set(nodeName, callback);
     }
 
-    onNodeDataChanged(workbookName: string, nodeName: string, callback: NodeDataCallback): void {
+    onNodeDataChanged(_workbookName: string, nodeName: string, callback: NodeDataCallback): void {
         this.dataChangedListeners.set(nodeName, callback);
     }
 

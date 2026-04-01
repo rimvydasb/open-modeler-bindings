@@ -54,7 +54,19 @@ export default function App() {
                     "/demo/loan-schedule/main.ts": mainSrc,
                 });
                 await engine.boot();
+
+                // 1. Register Event Listeners for UI updates
+                engine.onNodeDataChanged("myWorkbook", "renderLoanScheduleTable", (data) => {
+                    setResults((prev: any) => ({ ...prev, table: data }));
+                });
+
+                engine.onNodeDataChanged("myWorkbook", "renderLoanBalanceChart", (data) => {
+                    setResults((prev: any) => ({ ...prev, chart: data }));
+                });
+
                 engineRef.current = engine;
+                
+                // 2. Initial Evaluation: This will trigger the events registered above
                 runEvaluation(engine);
                 setIsBooting(false);
             } catch (err) {
@@ -73,14 +85,10 @@ export default function App() {
     }, []);
 
     const runEvaluation = (engine: OpenModelTSEngine) => {
-        // Initial execution/load
-        const table = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
-        const chart = engine.executeWorkbook("myWorkbook", "renderLoanBalanceChart");
-
-        setResults({
-            table: table,
-            chart: chart
-        });
+        // Trigger Sink Nodes. In the new architecture, these bypass TRACE_STORE 
+        // and push data directly via onNodeDataChanged events.
+        engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
+        engine.executeWorkbook("myWorkbook", "renderLoanBalanceChart");
     };
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
