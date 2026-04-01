@@ -1,12 +1,30 @@
-let TRACE_STORE: Record<string, any> = {};
+/**
+ * Trace entry for a single node in the dependency graph.
+ */
+export interface TraceEntry {
+    output?: any;
+    stale?: boolean;
+    input?: Record<string, any>;
+}
 
-// Tracks forward edges (Source Node -> Set of Dependent Nodes)
+/**
+ * Global store for node execution traces and memoization.
+ */
+export let TRACE_STORE: Record<string, TraceEntry> = {};
+
+/**
+ * Tracks forward edges in the dependency graph (Source Node -> Set of Dependent Nodes).
+ */
 const FORWARD_EDGES: Record<string, Set<string>> = {};
 
-// The currently evaluating node pointer
+/**
+ * Pointer to the node currently being evaluated.
+ */
 let ACTIVE_EVALUATING_NODE: string | null = null;
 
-// Stack to detect circular dependencies during evaluation
+/**
+ * Stack used to detect circular dependencies during node evaluation.
+ */
 const EVALUATION_STACK: string[] = [];
 
 /**
@@ -23,8 +41,7 @@ export function evalWorkbook<T extends Record<string, any>>(
     Object.assign(context, workbook);
 
     if (typeof workbook[nodeName] === 'function') {
-        const res = (workbook[nodeName] as any)();
-        return res;
+        return (workbook[nodeName] as any)();
     }
     throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
 }
@@ -33,13 +50,7 @@ export function evalWorkbook<T extends Record<string, any>>(
  * Retrieves a value from the trace store using a dot-notated path.
  */
 export function getFromTrace(path: string): any {
-    const parts = path.split('.');
-    let current = TRACE_STORE;
-    for (const part of parts) {
-        if (current === undefined || current === null) return undefined;
-        current = current[part];
-    }
-    return current;
+    return path.split('.').reduce((acc, part) => acc?.[part], TRACE_STORE as any);
 }
 
 /**
@@ -47,7 +58,7 @@ export function getFromTrace(path: string): any {
  */
 export function trace(path: string, value: any): any {
     const parts = path.split('.');
-    let current = TRACE_STORE;
+    let current = TRACE_STORE as any;
     for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
         if (current[part] === undefined) {
@@ -59,6 +70,9 @@ export function trace(path: string, value: any): any {
     return value;
 }
 
+/**
+ * Resets the trace store and forward edges.
+ */
 export function clearTrace(): void {
     TRACE_STORE = {};
     for (const key in FORWARD_EDGES) {
@@ -66,7 +80,9 @@ export function clearTrace(): void {
     }
 }
 
-// Standardized input resolver
+/**
+ * Standardized resolver for input values (handles both direct values and getter functions).
+ */
 function resolveValue<T>(input: T | (() => T)): T {
     return typeof input === 'function' ? (input as () => T)() : input;
 }
@@ -74,7 +90,7 @@ function resolveValue<T>(input: T | (() => T)): T {
 /**
  * Registers that the current ACTIVE_EVALUATING_NODE depends on sourceNode.
  */
-function registerDependency(sourceNode: string) {
+function registerDependency(sourceNode: string): void {
     if (ACTIVE_EVALUATING_NODE && ACTIVE_EVALUATING_NODE !== sourceNode) {
         if (!FORWARD_EDGES[sourceNode]) {
             FORWARD_EDGES[sourceNode] = new Set();
@@ -83,34 +99,63 @@ function registerDependency(sourceNode: string) {
     }
 }
 
+/**
+ * Core evaluation engine that handles dependency tracking, memoization, and circular dependency detection.
+ */
+function executeWithTracking<T>(
+    nodeName: string,
+    evaluate: () => T,
+    onBeforeExecution?: (traceEntry: TraceEntry) => void
+): T {
+    if (EVALUATION_STACK.includes(nodeName)) {
+        throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${nodeName}`);
+    }
+
+    registerDependency(nodeName);
+
+    let nodeTrace = TRACE_STORE[nodeName];
+    if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
+        return nodeTrace.output;
+    }
+
+    if (!nodeTrace) {
+        nodeTrace = TRACE_STORE[nodeName] = { stale: false };
+    }
+
+    const previousEvaluator = ACTIVE_EVALUATING_NODE;
+    ACTIVE_EVALUATING_NODE = nodeName;
+    EVALUATION_STACK.push(nodeName);
+
+    try {
+        if (onBeforeExecution) {
+            onBeforeExecution(nodeTrace);
+        }
+        const result = evaluate();
+        nodeTrace.output = result;
+        nodeTrace.stale = false;
+        return result;
+    } finally {
+        EVALUATION_STACK.pop();
+        ACTIVE_EVALUATING_NODE = previousEvaluator;
+    }
+}
+
+/**
+ * Defines a standard calculation node.
+ */
 export function node<T, P extends object>(
     invocation: (arg: P) => T,
     inputs?: { [K in keyof P]: P[K] | (() => P[K]) }
 ): () => T {
     const nodeName = invocation.name;
-    return () => {
-        if (EVALUATION_STACK.includes(nodeName)) {
-            throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${nodeName}`);
-        }
+    if (!nodeName) {
+        throw new Error("Node function must have a name.");
+    }
 
-        registerDependency(nodeName);
-
-        let nodeTrace = TRACE_STORE[nodeName];
-        
-        // Return cached output if we have it AND it's not marked stale
-        if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-            return nodeTrace.output;
-        }
-
-        const previousEvaluator = ACTIVE_EVALUATING_NODE;
-        ACTIVE_EVALUATING_NODE = nodeName;
-        EVALUATION_STACK.push(nodeName);
-
-        let completeInputs = {} as P;
+    return () => executeWithTracking(nodeName, () => {
+        const completeInputs = {} as P;
         if (inputs) {
-            if (!nodeTrace) {
-                nodeTrace = TRACE_STORE[nodeName] = { stale: false };
-            }
+            const nodeTrace = TRACE_STORE[nodeName];
             if (!nodeTrace.input) {
                 nodeTrace.input = {};
             }
@@ -122,102 +167,49 @@ export function node<T, P extends object>(
                 inputTrace[key] = value;
             }
         }
-
-        const result = invocation(completeInputs);
-
-        EVALUATION_STACK.pop();
-        ACTIVE_EVALUATING_NODE = previousEvaluator;
-
-        if (!TRACE_STORE[nodeName]) {
-            TRACE_STORE[nodeName] = {};
-        }
-        TRACE_STORE[nodeName].output = result;
-        TRACE_STORE[nodeName].stale = false;
-
-        return result;
-    };
+        return invocation(completeInputs);
+    });
 }
 
+/**
+ * Defines a visualization node for charts.
+ */
 export function chartNode<T>(
     nodeName: string,
     inputs: { input: T | (() => T) }
 ): () => T {
-    return () => {
-        registerDependency(nodeName);
-        
-        const nodeTrace = TRACE_STORE[nodeName];
-        if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-            return nodeTrace.output;
-        }
-
-        const previousEvaluator = ACTIVE_EVALUATING_NODE;
-        ACTIVE_EVALUATING_NODE = nodeName;
-
+    return () => executeWithTracking(nodeName, () => {
         const data = resolveValue(inputs.input);
-
-        ACTIVE_EVALUATING_NODE = previousEvaluator;
-        
-        if (!TRACE_STORE[nodeName]) TRACE_STORE[nodeName] = {};
-        TRACE_STORE[nodeName].output = data;
-        TRACE_STORE[nodeName].stale = false;
-
         console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
         return data;
-    };
+    });
 }
 
+/**
+ * Defines a visualization node for tables.
+ */
 export function outputTableNode<T>(
     tableName: string,
     inputs: { rows: T[] | (() => T[]) }
 ): () => T[] {
-    return () => {
-        registerDependency(tableName);
-
-        const nodeTrace = TRACE_STORE[tableName];
-        if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-            return nodeTrace.output;
-        }
-
-        const previousEvaluator = ACTIVE_EVALUATING_NODE;
-        ACTIVE_EVALUATING_NODE = tableName;
-
+    return () => executeWithTracking(tableName, () => {
         const data = resolveValue(inputs.rows);
-
-        ACTIVE_EVALUATING_NODE = previousEvaluator;
-
-        if (!TRACE_STORE[tableName]) TRACE_STORE[tableName] = {};
-        TRACE_STORE[tableName].output = data;
-        TRACE_STORE[tableName].stale = false;
-
         console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
         return data;
-    };
+    });
 }
 
+/**
+ * Defines an input node that holds data.
+ */
 export function inputListNode<T>(
     listName: string,
     inputs: T
 ): () => { rows: T } {
-    return () => {
-        if (EVALUATION_STACK.includes(listName)) {
-            throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${listName}`);
-        }
-        registerDependency(listName);
-
-        let nodeTrace = TRACE_STORE[listName];
-        if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-            return nodeTrace.output;
-        }
-
-        console.log(`[Input List: ${listName}]`);
-        const result = { rows: inputs };
-        
-        if (!TRACE_STORE[listName]) TRACE_STORE[listName] = {};
-        TRACE_STORE[listName].output = result;
-        TRACE_STORE[listName].stale = false;
-
-        return result;
-    };
+    return () => executeWithTracking(listName, () => {
+        console.log(`[Input List: ${listName}] initialized.`);
+        return { rows: inputs };
+    });
 }
 
 /**
@@ -229,23 +221,23 @@ export function getTopologicalOrder(): string[] {
     const result: string[] = [];
     const temp = new Set<string>();
 
-    function visit(node: string) {
-        if (temp.has(node)) throw new Error("Cycle detected during topological sort.");
-        if (!visited.has(node)) {
-            temp.add(node);
-            const dependents = Array.from(FORWARD_EDGES[node] || []);
+    function visit(nodeName: string) {
+        if (temp.has(nodeName)) throw new Error("Cycle detected during topological sort.");
+        if (!visited.has(nodeName)) {
+            temp.add(nodeName);
+            const dependents = Array.from(FORWARD_EDGES[nodeName] || []);
             for (const dependent of dependents) {
                 visit(dependent);
             }
-            temp.delete(node);
-            visited.add(node);
-            result.unshift(node);
+            temp.delete(nodeName);
+            visited.add(nodeName);
+            result.unshift(nodeName);
         }
     }
 
     const allNodes = new Set([...Object.keys(FORWARD_EDGES), ...Object.keys(TRACE_STORE)]);
-    for (const node of allNodes) {
-        visit(node);
+    for (const nodeName of allNodes) {
+        visit(nodeName);
     }
 
     return result;
@@ -271,21 +263,26 @@ export function validateWorkbook(workbookLoader: (context: any) => any): void {
  */
 export function mutateInput<T>(nodeName: string, newData: T): void {
     console.log(`[Mutate ${nodeName}] updated with new data.`);
-    if (!TRACE_STORE[nodeName]) TRACE_STORE[nodeName] = {};
+    if (!TRACE_STORE[nodeName]) {
+        TRACE_STORE[nodeName] = {};
+    }
     TRACE_STORE[nodeName].output = { rows: newData };
     TRACE_STORE[nodeName].stale = false;
 
     invalidateDownstream(nodeName);
 }
 
+/**
+ * Recursively marks downstream dependencies as stale.
+ */
 function invalidateDownstream(sourceNode: string): void {
     const dependents = FORWARD_EDGES[sourceNode];
     if (!dependents) return;
 
     for (const dependent of dependents) {
-        const trace = TRACE_STORE[dependent];
-        if (trace && trace.stale !== true) {
-            trace.stale = true;
+        const traceEntry = TRACE_STORE[dependent];
+        if (traceEntry && traceEntry.stale !== true) {
+            traceEntry.stale = true;
             invalidateDownstream(dependent);
         }
     }
