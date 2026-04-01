@@ -176,11 +176,15 @@ export class OpenModelTSEngine {
         return this.execute("evalWorkbook", vmRef(workbookName), nodeName);
     }
 
-    onBeforeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void {
+    onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void {
 
     }
 
-    onAfterExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void {
+    onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void {
+
+    }
+
+    onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void): void {
 
     }
 

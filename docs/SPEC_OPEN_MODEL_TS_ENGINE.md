@@ -46,10 +46,11 @@ Initializes a new instance of the engine.
 
 Transpiles the provided TypeScript files and prepares the internal JavaScript bundle.
 
-- `entryPoints`: 
+- `entryPoints`:
     - **Node/Deno:** An array of file paths.
     - **Browser/Virtual:** A record mapping virtual file paths to source code strings (e.g., `{ "/main.ts": "..." }`).
-- The engine resolves dependencies within the provided virtual or physical scope and emits a unified JavaScript string directly to memory.
+- The engine resolves dependencies within the provided virtual or physical scope and emits a unified JavaScript string
+  directly to memory.
 
 #### `async boot(): Promise<void>`
 
@@ -65,32 +66,44 @@ Calls a global function defined in the loaded project.
 
 #### `mutate<T>(nodeName: string, value: T): void`
 
-Host-side trigger to update the payload of an input node. This explicitly injects new external data into the sandboxed environment and initiates the **Push Phase** (invalidation).
+Host-side trigger to update the payload of an input node. This explicitly injects new external data into the sandboxed
+environment and initiates the **Push Phase** (invalidation).
 
 - `nodeName`: The exact identifier of the node within the `TRACE_STORE` (e.g., `'inputVariables'`).
-- `value`: The new, raw data payload to assign to this node's output trace. The shape of `value` **must exactly match** the expected output shape of the node being mutated. The engine serializes this `value` to JSON and sends it into the VM, bypassing the node's original evaluator function to substitute its result directly.
+- `value`: The new, raw data payload to assign to this node's output trace. The shape of `value` **must exactly match**
+  the expected output shape of the node being mutated. The engine serializes this `value` to JSON and sends it into the
+  VM, bypassing the node's original evaluator function to substitute its result directly.
 
 ### Strategy & Reasoning: The `mutate` API
 
-The `mutate` method is the critical communication bridge for reacting to user input in the Host Environment without tearing down the VM or re-transpiling the model.
+The `mutate` method is the critical communication bridge for reacting to user input in the Host Environment without
+tearing down the VM or re-transpiling the model.
 
 **Why does it accept exactly `value: T`?**
-The Host-side engine should remain entirely agnostic to the internal abstractions of specific node implementations (such as wrapping arrays into `{ rows }` structures). By mandating that `mutate` receives the exact data structure expected by the node's dependents, we decouple the host engine from the domain framework logic. The inner `mutateInput` framework function directly overwrites the cached output of the target node in the `TRACE_STORE` with the provided `value`.
+The Host-side engine should remain entirely agnostic to the internal abstractions of specific node implementations (such
+as wrapping arrays into `{ rows }` structures). By mandating that `mutate` receives the exact data structure expected by
+the node's dependents, we decouple the host engine from the domain framework logic. The inner `mutateInput` framework
+function directly overwrites the cached output of the target node in the `TRACE_STORE` with the provided `value`.
 
 ---
 
 ## Execution Strategy: In-Memory (No-FS) Operations
 
-To ensure compatibility with modern browsers (Chrome, Edge, Safari) and restricted environments, the `OpenModelTSEngine` operates entirely in memory.
+To ensure compatibility with modern browsers (Chrome, Edge, Safari) and restricted environments, the `OpenModelTSEngine`
+operates entirely in memory.
 
 ### 1. Virtual File System (VFS) Transpilation
+
 The engine uses `ts-morph` with an in-memory file system. This allows it to:
+
 - Resolve imports between virtual files without hitting the disk.
 - Emit a single JavaScript bundle as a string via `emitToMemory()`.
 - Completely avoid the overhead and security constraints of temporary file creation (`tmp/`).
 
 ### 2. Streamlined Evaluation
-Once the JS bundle is generated, it is passed directly to `vm.evalCode(jsCode)`. This string-based transfer is the only bridge required to bootstrap the sandboxed environment.
+
+Once the JS bundle is generated, it is passed directly to `vm.evalCode(jsCode)`. This string-based transfer is the only
+bridge required to bootstrap the sandboxed environment.
 
 ```mermaid
 graph LR
@@ -105,43 +118,44 @@ graph LR
 
 ## Reactivity & Execution Strategy
 
-To maintain pure model definitions while enabling high-performance updates, the engine implements a **Hybrid Pull/Push Reactivity** model (Transparent Reactivity).
+To maintain pure model definitions while enabling high-performance updates, the engine implements a **Hybrid Pull/Push
+Reactivity** model (Transparent Reactivity).
 
 ### Behavioral Diagrams
 
 **Pull Phase: DAG Discovery & Execution**
+
 ```mermaid
 sequenceDiagram
     participant Host
     participant Engine
     participant VM
     participant Framework
-    
-    Host->>Engine: execute("eval_myWorkbook", "renderChart")
-    Engine->>VM: callVm("eval_myWorkbook", ...)
-    VM->>Framework: Invoke node logic
-    Framework-->>Framework: Check DAG for staleness
-    Framework-->>Framework: Pull dependencies (if stale or undiscovered)
-    Framework-->>VM: Return JSON result
-    VM-->>Engine: Dump native handle to Host
-    Engine-->>Host: Deserialize and return T
+    Host ->> Engine: execute("eval_myWorkbook", "renderChart")
+    Engine ->> VM: callVm("eval_myWorkbook", ...)
+    VM ->> Framework: Invoke node logic
+    Framework -->> Framework: Check DAG for staleness
+    Framework -->> Framework: Pull dependencies (if stale or undiscovered)
+    Framework -->> VM: Return JSON result
+    VM -->> Engine: Dump native handle to Host
+    Engine -->> Host: Deserialize and return T
 ```
 
 **Push Phase: Invalidation**
+
 ```mermaid
 sequenceDiagram
     participant Host
     participant Engine
     participant VM
     participant Framework
-    
-    Host->>Engine: mutate("inputVariables", { loanAmount: 100000 })
-    Engine->>VM: callVm("mutateInput", "inputVariables", newPayload)
-    VM->>Framework: Update TRACE_STORE output
-    Framework-->>Framework: invalidateDownstream(nodeName) (stale = true)
-    Framework-->>VM: return
-    VM-->>Engine: success
-    Engine-->>Host: void
+    Host ->> Engine: mutate("inputVariables", { loanAmount: 100000 })
+    Engine ->> VM: callVm("mutateInput", "inputVariables", newPayload)
+    VM ->> Framework: Update TRACE_STORE output
+    Framework -->> Framework: invalidateDownstream(nodeName) (stale = true)
+    Framework -->> VM: return
+    VM -->> Engine: success
+    Engine -->> Host: void
 ```
 
 ### 1. The Pull Phase (DAG Discovery)
@@ -179,13 +193,14 @@ To ensure compatibility with the flat global scope of the VM, the engine applies
 ## Example Usage
 
 ### 1. Initialization and Initial Pull
+
 ```typescript
 const engine = new OpenModelTSEngine();
 
 // Load from memory (Browser-friendly)
 await engine.loadProject({
     "/main.ts": "import { node } from './bindings'; ...",
-    "/bindings.ts": "..." 
+    "/bindings.ts": "..."
 });
 
 await engine.boot();
@@ -196,6 +211,7 @@ console.log("Initial Rows:", initialTable.length);
 ```
 
 ### 2. Reactive Mutation (Push Phase)
+
 ```typescript
 // Update an input variable - this triggers the Push (Invalidation) Phase
 engine.mutate("inputVariables", {
@@ -216,3 +232,12 @@ engine.dispose();
 - `ts-morph`: For TypeScript transpilation.
 - `quickjs-emscripten`: For the WASM-based JS VM.
 - `deno.land/std/path`: For path resolution.
+
+## Bindings
+
+| Node Type         | Description                                                    | Events                                          |
+|-------------------|----------------------------------------------------------------|-------------------------------------------------|
+| `inputListNode`   | Captures user inputs from GUI. Use `mutate` to trigger change. | `onNodeDataChanged`                             |
+| `node`            | Calculates provided function.                                  | `onBeforeNodeExecution`, `onAfterNodeExecution` |
+| `chartNode`       | Captures data to draw Chart in GUI.                            | `onNodeDataChanged`                             |
+| `outputTableNode` | Captures data to draw Table in GUI.                            | `onNodeDataChanged`                             |
