@@ -2,8 +2,8 @@
  * Trace entry for a single node in the dependency graph.
  */
 export interface TraceEntry {
-    output?: any;
     stale?: boolean;
+    output?: Record<string, any>;
     input?: Record<string, any>;
 }
 
@@ -104,8 +104,7 @@ function registerDependency(sourceNode: string): void {
  */
 function executeWithTracking<T>(
     nodeName: string,
-    evaluate: () => T,
-    onBeforeExecution?: (traceEntry: TraceEntry) => void
+    evaluate: () => T
 ): T {
     if (EVALUATION_STACK.includes(nodeName)) {
         throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${nodeName}`);
@@ -113,13 +112,13 @@ function executeWithTracking<T>(
 
     registerDependency(nodeName);
 
-    let nodeTrace = TRACE_STORE[nodeName];
+    let nodeTrace: TraceEntry = TRACE_STORE[nodeName];
     if (nodeTrace?.output !== undefined && !nodeTrace?.stale) {
-        return nodeTrace.output;
+        return nodeTrace.output as unknown as T;
     }
 
     if (!nodeTrace) {
-        nodeTrace = TRACE_STORE[nodeName] = { stale: false };
+        nodeTrace = TRACE_STORE[nodeName] = {stale: false};
     }
 
     const previousEvaluator = ACTIVE_EVALUATING_NODE;
@@ -127,11 +126,14 @@ function executeWithTracking<T>(
     EVALUATION_STACK.push(nodeName);
 
     try {
-        if (onBeforeExecution) {
-            onBeforeExecution(nodeTrace);
-        }
         const result = evaluate();
-        nodeTrace.output = result;
+        
+        // Enforce named outputs (objects)
+        if (typeof result !== 'object' || result === null) {
+            throw new Error(`Node "${nodeName}" must return a named output (object), but got ${typeof result}.`);
+        }
+
+        nodeTrace.output = result as Record<string, any>;
         nodeTrace.stale = false;
         return result;
     } finally {
@@ -143,7 +145,7 @@ function executeWithTracking<T>(
 /**
  * Defines a standard calculation node.
  */
-export function node<T, P extends object>(
+export function node<T extends Record<string, any>, P extends object>(
     invocation: (arg: P) => T,
     inputs?: { [K in keyof P]: P[K] | (() => P[K]) }
 ): () => T {
@@ -174,7 +176,7 @@ export function node<T, P extends object>(
 /**
  * Defines a visualization node for charts.
  */
-export function chartNode<T>(
+export function chartNode<T extends Record<string, any>>(
     nodeName: string,
     inputs: { input: T | (() => T) }
 ): () => T {
@@ -188,15 +190,15 @@ export function chartNode<T>(
 /**
  * Defines a visualization node for tables.
  */
-export function outputTableNode<T>(
+export function outputTableNode<T extends Record<string, any>>(
     tableName: string,
     inputs: { rows: T[] | (() => T[]) }
 ): () => T[] {
     return () => executeWithTracking(tableName, () => {
         const data = resolveValue(inputs.rows);
         console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
-        return data;
-    });
+        return data as unknown as T[];
+    }) as unknown as T[];
 }
 
 /**

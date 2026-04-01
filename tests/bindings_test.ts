@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { strictEqual, throws } from "node:assert/strict";
+import { strictEqual, throws, deepStrictEqual } from "node:assert/strict";
 import { 
     node, 
     inputListNode, 
@@ -15,7 +15,7 @@ test("Framework: memoization avoids redundant execution", () => {
     const testWorkbookLoader = (context: any) => ({
         nodeA: node(function nodeA() {
             callCount++;
-            return 42;
+            return { result: 42 };
         })
     });
     
@@ -35,7 +35,7 @@ test("Framework: mutateInput invalidates downstream nodes", () => {
         input: inputListNode("input", { val: 1 }),
         calc: node(function calc({v}: {v: number}) {
             callCount++;
-            return v + 10;
+            return { result: v + 10 };
         }, { v: () => context.input().rows.val })
     });
     
@@ -44,7 +44,7 @@ test("Framework: mutateInput invalidates downstream nodes", () => {
 
     // 1. Initial Pull
     const res1 = workbook.calc();
-    strictEqual(res1, 11);
+    strictEqual(res1.result, 11);
     strictEqual(callCount, 1);
 
     // 2. Push (Mutation)
@@ -53,7 +53,7 @@ test("Framework: mutateInput invalidates downstream nodes", () => {
 
     // 3. Second Pull (Targeted)
     const res2 = workbook.calc();
-    strictEqual(res2, 15);
+    strictEqual(res2.result, 15);
     strictEqual(callCount, 2);
 });
 
@@ -67,11 +67,11 @@ test("Framework: unrelated mutations do not invalidate siblings", () => {
         inputB: inputListNode("inputB", { val: 1 }),
         calcA: node(function calcA({v}: {v: number}) {
             calcACount++;
-            return v + 1;
+            return { result: v + 1 };
         }, { v: () => context.inputA().rows.val }),
         calcB: node(function calcB({v}: {v: number}) {
             calcBCount++;
-            return v + 1;
+            return { result: v + 1 };
         }, { v: () => context.inputB().rows.val })
     });
 
@@ -93,10 +93,10 @@ test("Framework: unrelated mutations do not invalidate siblings", () => {
 test("Framework: detect circular dependencies", () => {
     clearTrace();
     const circularWorkbook = (context: any) => ({
-        nodeA: node(function nodeA() { return (context.nodeB?.() || 0) + 1; }, {
+        nodeA: node(function nodeA() { return { result: (context.nodeB?.().result || 0) + 1 }; }, {
             b: () => context.nodeB()
         }),
-        nodeB: node(function nodeB() { return (context.nodeA?.() || 0) + 1; }, {
+        nodeB: node(function nodeB() { return { result: (context.nodeA?.().result || 0) + 1 }; }, {
             a: () => context.nodeA()
         })
     });
@@ -104,5 +104,23 @@ test("Framework: detect circular dependencies", () => {
     throws(
         () => validateWorkbook(circularWorkbook),
         { message: /Circular dependency detected/ }
+    );
+});
+
+test("Framework: enforce named outputs", () => {
+    clearTrace();
+    const invalidWorkbook = (context: any) => ({
+        // @ts-ignore
+        badNode: node(function badNode() {
+            return 42; // Invalid: scalar output
+        })
+    });
+
+    const workbook = {} as any;
+    Object.assign(workbook, invalidWorkbook(workbook));
+
+    throws(
+        () => workbook.badNode(),
+        { message: /must return a named output \(object\)/ }
     );
 });

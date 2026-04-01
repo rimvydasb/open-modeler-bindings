@@ -1,5 +1,5 @@
 import { test } from "node:test";
-import { strictEqual, rejects, ok } from "node:assert/strict";
+import { strictEqual, rejects, ok, deepStrictEqual } from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { OpenModelTSEngine } from "../src/OpenModelTSEngine.ts";
 import { loadFiles } from "../src/node-utils.ts";
@@ -13,7 +13,7 @@ test("Engine: In-memory project loading and basic execution", async () => {
         "/bindings.ts": BINDINGS_CONTENT,
         "/main.ts": `
             import { node, evalWorkbook } from "./bindings";
-            const myCalc = () => 42;
+            const myCalc = () => ({ result: 42 });
             const calcNode = node(myCalc);
             const workbook = (context: any) => ({
                 run: calcNode
@@ -26,7 +26,7 @@ test("Engine: In-memory project loading and basic execution", async () => {
 
     await engine.boot();
     const result = engine.execute("run");
-    strictEqual(result, 42);
+    deepStrictEqual(result, { result: 42 });
     engine.dispose();
 });
 
@@ -42,7 +42,7 @@ test("Engine: Reactive mutation and invalidation", async () => {
             let callCount = 0;
             function double() { 
                 callCount++;
-                return getIn().rows * 2; 
+                return { result: getIn().rows * 2 }; 
             }
             const doubleNode = node(double);
             
@@ -59,16 +59,16 @@ test("Engine: Reactive mutation and invalidation", async () => {
     await engine.boot();
     
     // First run
-    strictEqual(engine.execute("run"), 20);
+    deepStrictEqual(engine.execute("run"), { result: 20 });
     strictEqual(engine.execute("getCalls"), 1);
     
     // Memoization check
-    strictEqual(engine.execute("run"), 20);
+    deepStrictEqual(engine.execute("run"), { result: 20 });
     strictEqual(engine.execute("getCalls"), 1);
     
     // Mutation
     engine.mutate("myIn", 50);
-    strictEqual(engine.execute("run"), 100);
+    deepStrictEqual(engine.execute("run"), { result: 100 });
     strictEqual(engine.execute("getCalls"), 2);
     
     engine.dispose();
@@ -87,13 +87,13 @@ test("Engine: Full Reactive Lifecycle with multi-node dependencies", async () =>
             let calcACalls = 0;
             const calcA = node(function calcA() { 
                 calcACalls++;
-                return getIn().rows + 1; 
+                return { result: getIn().rows + 1 }; 
             });
             
             let calcBCalls = 0;
             const calcB = node(function calcB() { 
                 calcBCalls++;
-                return calcA() * 2; 
+                return { result: calcA().result * 2 }; 
             });
             
             const workbook = (context) => ({
@@ -111,13 +111,13 @@ test("Engine: Full Reactive Lifecycle with multi-node dependencies", async () =>
     await engine.boot();
     
     // 1. Initial execution of B (triggers A)
-    strictEqual(engine.execute("runB"), 22);
+    deepStrictEqual(engine.execute("runB"), { result: 22 });
     let calls = engine.execute("getCalls");
     strictEqual(calls.a, 1);
     strictEqual(calls.b, 1);
     
     // 2. Execution of A (should be memoized)
-    strictEqual(engine.execute("runA"), 11);
+    deepStrictEqual(engine.execute("runA"), { result: 11 });
     calls = engine.execute("getCalls");
     strictEqual(calls.a, 1);
     
@@ -125,7 +125,7 @@ test("Engine: Full Reactive Lifecycle with multi-node dependencies", async () =>
     engine.mutate("myIn", 20);
     
     // 4. Execution of B again (triggers A again)
-    strictEqual(engine.execute("runB"), 42);
+    deepStrictEqual(engine.execute("runB"), { result: 42 });
     calls = engine.execute("getCalls");
     strictEqual(calls.a, 2);
     strictEqual(calls.b, 2);

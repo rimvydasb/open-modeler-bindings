@@ -176,6 +176,14 @@ export class OpenModelTSEngine {
         return this.execute("evalWorkbook", vmRef(workbookName), nodeName);
     }
 
+    onBeforeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void {
+
+    }
+
+    onAfterExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void {
+
+    }
+
     /**
      * Host-side trigger to update input nodes.
      */
