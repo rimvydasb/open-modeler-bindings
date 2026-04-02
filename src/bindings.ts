@@ -140,7 +140,7 @@ function executeWithTracking<T>(
 
     try {
         const result = evaluate();
-        
+
         // Enforce named outputs (objects)
         if (typeof result !== 'object' || result === null) {
             throw new Error(`Node "${nodeName}" must return a named output (object), but got ${typeof result}.`);
@@ -159,6 +159,7 @@ function executeWithTracking<T>(
 
 /**
  * Defines a standard calculation node.
+ * This node can also represent DMN Decision that has input and output pins.
  */
 export function node<T extends Record<string, any>, P extends object>(
     invocation: (arg: P) => T,
@@ -185,11 +186,43 @@ export function node<T extends Record<string, any>, P extends object>(
             }
         }
 
-        emitEvent('beforeNodeExecution', { nodeName, input: TRACE_STORE[nodeName].input });
+        emitEvent('beforeNodeExecution', {nodeName, input: TRACE_STORE[nodeName].input});
         const result = invocation(completeInputs);
-        emitEvent('afterNodeExecution', { nodeName, output: result });
-        
+        emitEvent('afterNodeExecution', {nodeName, output: result});
+
         return result;
+    });
+}
+
+/**
+ * Terms node that allows extending already existing input data and adding additional derivations.
+ * Terms node helps to reduce overall nodes count by letting user define minor derivations that are directly related
+ * to the given input data.
+ */
+export function termsNode<T extends object, P extends object>(
+    nodeClass: new (data?: P) => T,
+    data?: P
+): () => T {
+    const nodeName = nodeClass.name;
+    if (!nodeName) {
+        throw new Error("Node class must have a name.");
+    }
+
+    return () => executeWithTracking(nodeName, () => {
+        const nodeTrace = TRACE_STORE[nodeName];
+        if (!nodeTrace.input) {
+            nodeTrace.input = {};
+        }
+        const inputTrace = nodeTrace.input;
+        inputTrace.data = data;
+
+        emitEvent('beforeNodeExecution', {nodeName, input: inputTrace});
+
+        const term = new nodeClass(data);
+
+        emitEvent('afterNodeExecution', {nodeName, output: term});
+
+        return term;
     });
 }
 
@@ -203,11 +236,11 @@ export function chartNode<T extends Record<string, any>>(
     return () => executeWithTracking(nodeName, () => {
         const data = resolveValue(inputs.input);
         console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
-        
-        emitEvent('nodeDataChanged', { nodeName, data });
-        
+
+        emitEvent('nodeDataChanged', {nodeName, data});
+
         return data;
-    }, { skipCache: true });
+    }, {skipCache: true});
 }
 
 /**
@@ -220,11 +253,11 @@ export function outputTableNode<T extends Record<string, any>>(
     return () => executeWithTracking(tableName, () => {
         const data = resolveValue(inputs.rows);
         console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
-        
-        emitEvent('nodeDataChanged', { nodeName: tableName, data });
-        
+
+        emitEvent('nodeDataChanged', {nodeName: tableName, data});
+
         return data as unknown as T[];
-    }, { skipCache: true }) as unknown as T[];
+    }, {skipCache: true}) as unknown as T[];
 }
 
 /**
@@ -236,10 +269,10 @@ export function inputListNode<T>(
 ): () => { rows: T } {
     return () => executeWithTracking(listName, () => {
         console.log(`[Input List: ${listName}] initialized.`);
-        const result = { rows: inputs };
-        
-        emitEvent('nodeDataChanged', { nodeName: listName, data: inputs });
-        
+        const result = {rows: inputs};
+
+        emitEvent('nodeDataChanged', {nodeName: listName, data: inputs});
+
         return result;
     });
 }
@@ -298,10 +331,10 @@ export function mutateInput<T>(nodeName: string, newData: T): void {
     if (!TRACE_STORE[nodeName]) {
         TRACE_STORE[nodeName] = {};
     }
-    TRACE_STORE[nodeName].output = { rows: newData };
+    TRACE_STORE[nodeName].output = {rows: newData};
     TRACE_STORE[nodeName].stale = false;
 
-    emitEvent('nodeDataChanged', { nodeName, data: newData });
+    emitEvent('nodeDataChanged', {nodeName, data: newData});
 
     invalidateDownstream(nodeName);
 }

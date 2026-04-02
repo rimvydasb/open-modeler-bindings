@@ -16,7 +16,6 @@ export const INPUT_VARIABLES: LoanInputs = {
     startDate: new Date('2026-04-01'),
 };
 
-// deno-lint-ignore no-explicit-any
 export const myWorkbook = (context: Record<string, any>): Record<string, any> => ({
     inputVariables: inputListNode("inputVariables", INPUT_VARIABLES),
 
