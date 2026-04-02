@@ -201,7 +201,7 @@ export function node<T extends Record<string, any>, P extends object>(
  */
 export function termsNode<T extends object, P extends object>(
     nodeClass: new (data?: P) => T,
-    data?: P
+    data?: P | (() => P)
 ): () => T {
     const nodeName = nodeClass.name;
     if (!nodeName) {
@@ -214,11 +214,13 @@ export function termsNode<T extends object, P extends object>(
             nodeTrace.input = {};
         }
         const inputTrace = nodeTrace.input;
-        inputTrace.data = data;
+
+        const resolvedData = resolveValue(data);
+        inputTrace.data = resolvedData;
 
         emitEvent('beforeNodeExecution', {nodeName, input: inputTrace});
 
-        const term = new nodeClass(data);
+        const term = new nodeClass(resolvedData);
 
         emitEvent('afterNodeExecution', {nodeName, output: term});
 

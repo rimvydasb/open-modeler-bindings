@@ -1,7 +1,7 @@
 {
-    "name": "@open-modeler/loan-schedule-demo",
+    "name": "@open-modeler/loan-originations-demo",
     "version": "0.1.0",
-    "description": "TypeScript/JavaScript bindings for Open Modeler - Loan Schedule Demo",
+    "description": "TypeScript/JavaScript bindings for Open Modeler - Loan Originations Demo",
     "type": "module",
     "license": "MIT",
     "author": "Rimvydas Bingelis",

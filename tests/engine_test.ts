@@ -207,6 +207,47 @@ test("Engine: Happy path with real loan-schedule demo and events", async () => {
     }
 });
 
+test("Engine: Loan Originations demo with termsNode", async () => {
+    const engine = new OpenModelTSEngine({ debug: false });
+    
+    // Load real files from the file system
+    await engine.loadProject(loadFiles([
+        "src/bindings.ts",
+        "demo/loan-originations/types.ts",
+        "demo/loan-originations/library.ts",
+        "demo/loan-originations/main.ts"
+    ]));
+
+    await engine.boot();
+
+    try {
+        const result = engine.executeWorkbook("originationsWorkbook", "renderEligibilityResult");
+        ok(result);
+        strictEqual(result[0].eligible, true, "John Doe should be eligible in engine");
+
+        // Mutate to underage
+        // Note: JSON.stringify in engine.mutate will convert Date to string, 
+        // but ApplicationTerms uses new Date(birthday) which handles it.
+        engine.mutate("applicationInput", {
+            customer: {
+                firstName: "Baby",
+                lastName: "Doe",
+                birthday: "2020-01-01",
+            },
+            requestedAmount: 15000,
+            termMonths: 36,
+        });
+
+        const result2 = engine.executeWorkbook("originationsWorkbook", "renderEligibilityResult");
+        strictEqual(result2[0].eligible, false, "Baby Doe should not be eligible in engine");
+    } catch (e) {
+        console.log("Transpiled Code:\n", engine.getTranspiledCode());
+        throw e;
+    } finally {
+        engine.dispose();
+    }
+});
+
 test("Engine: Error handling for missing functions", async () => {
     const engine = new OpenModelTSEngine();
     await engine.loadProject({ "/main.ts": "export function ok() { return 1; }" });
