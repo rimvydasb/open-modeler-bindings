@@ -78,6 +78,16 @@ environment and initiates the **Push Phase** (invalidation).
   the expected output shape of the node being mutated. The engine serializes this `value` to JSON and sends it into the
   VM, bypassing the node's original evaluator function to substitute its result directly.
 
+#### `executeWorkbook(workbookName: string, nodeName?: string): Record<string, any>`
+
+Evaluates a specific workbook.
+
+- `workbookName`: The name of the workbook thunk to execute.
+- `nodeName`: (Optional) The specific node to pull. If omitted, performs a "Full Pull" on all nodes.
+- **Returns:** A `Record<string, any>` containing results for **all** nodes defined in the workbook.
+  - If `nodeName` is provided, it returns the requested result plus any existing cached results for other nodes.
+  - Nodes that haven't been evaluated yet will be `undefined` in the record.
+
 ### Event Listener Methods (Under Design)
 
 The `OpenModelTSEngine` provides asynchronous event listeners to bridge the VM execution lifecycle back to the Host

@@ -41,21 +41,54 @@ function emitEvent(eventType: string, payload: any): void {
 
 /**
  * Generic evaluator for workbook-style dependency graphs.
- * This is a pull strategy evaluation.
- * Clears the trace before execution and returns the final trace store.
+ * This is the primary entry point for the Pull strategy.
+ *
+ * @param workbookLoader - A function that instantiates the workbook nodes.
+ * @param nodeName - (Optional) The specific node to evaluate.
+ * @returns
+ *   - If nodeName is provided: The evaluation result of that specific node.
+ *   - If nodeName is omitted: A Record<string, any> containing results for all nodes in the workbook.
+ *
+ * Implementation Detail: When nodeName is omitted, it performs a "Full Pull" by iterating through
+ * all nodes. Thanks to the hybrid Push/Pull architecture, only "stale" nodes (invalidated by
+ * mutateInput) or uninitialized nodes will actually be re-executed.
  */
 export function evalWorkbook<T extends Record<string, any>>(
     workbookLoader: (context: any) => T,
-    nodeName: keyof T
-): any {
+    nodeName?: keyof T
+): Record<string, any> {
     const context: any = {};
     const workbook = workbookLoader(context);
     Object.assign(context, workbook);
 
-    if (typeof workbook[nodeName] === 'function') {
-        return (workbook[nodeName] as any)();
+    const results: Record<string, any> = {};
+
+    if (nodeName !== undefined) {
+        if (typeof workbook[nodeName] === "function") {
+            results[String(nodeName)] = (workbook[nodeName] as any)();
+        } else {
+            throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
+        }
+    } else {
+        for (const key in workbook) {
+            if (typeof workbook[key] === "function") {
+                results[key] = (workbook[key] as any)();
+            }
+        }
     }
-    throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
+
+    // Consolidated Return: Fill in other nodes from TRACE_STORE if they aren't already in results
+    for (const key in workbook) {
+        if (typeof workbook[key] === "function" && results[key] === undefined) {
+            const trace = TRACE_STORE[key];
+            if (trace && trace.output !== undefined) {
+                results[key] = trace.output;
+            } else {
+                results[key] = undefined;
+            }
+        }
+    }
+    return results;
 }
 
 /**

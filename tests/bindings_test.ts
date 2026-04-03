@@ -6,8 +6,95 @@ import {
     mutateInput,
     clearTrace,
     getFromTrace,
-    validateWorkbook
+    validateWorkbook,
+    evalWorkbook
 } from "../src/bindings.ts";
+
+test("Framework: evalWorkbook without nodeName evaluates all nodes", () => {
+    clearTrace();
+    const testWorkbookLoader = (context: any) => ({
+        nodeA: node(function nodeA() { return { result: 1 }; }),
+        nodeB: node(function nodeB() { return { result: 2 }; }),
+        someStaticValue: "not a function"
+    });
+
+    const results = evalWorkbook(testWorkbookLoader);
+
+    deepStrictEqual(results, {
+        nodeA: { result: 1 },
+        nodeB: { result: 2 }
+    });
+});
+
+test("Framework: Targeted Pull (Pull Isolation)", () => {
+    clearTrace();
+    let callCountA = 0;
+    let callCountB = 0;
+
+    const testWorkbookLoader = (context: any) => ({
+        nodeA: node(function nodeA() {
+            callCountA++;
+            return { result: 'A' };
+        }),
+        nodeB: node(function nodeB() {
+            callCountB++;
+            return { result: 'B' };
+        })
+    });
+
+    // 1. Evaluate only nodeA
+    const resultsA = evalWorkbook(testWorkbookLoader, "nodeA");
+    deepStrictEqual(resultsA, {
+        nodeA: { result: 'A' },
+        nodeB: undefined
+    });
+    strictEqual(callCountA, 1, "nodeA should be called once");
+    strictEqual(callCountB, 0, "nodeB should NOT be called");
+
+    // 2. Evaluate only nodeB
+    const resultsB = evalWorkbook(testWorkbookLoader, "nodeB");
+    deepStrictEqual(resultsB, {
+        nodeA: { result: 'A' },
+        nodeB: { result: 'B' }
+    });
+    strictEqual(callCountA, 1, "nodeA should NOT be called again");
+    strictEqual(callCountB, 1, "nodeB should now be called once");
+});
+
+test("Framework: Full Pull Efficiency (only re-evaluates stale nodes)", () => {
+    clearTrace();
+    let countA = 0;
+    let countB = 0;
+
+    const testWorkbookLoader = (context: any) => ({
+        input: inputListNode("input", { value: 10 }),
+        nodeA: node(function nodeA() {
+            countA++;
+            return { result: context.input().rows.value + 1 };
+        }),
+        nodeB: node(function nodeB() {
+            countB++;
+            return { result: 100 };
+        })
+    });
+
+    // 1. Initial full pull
+    evalWorkbook(testWorkbookLoader);
+    strictEqual(countA, 1);
+    strictEqual(countB, 1);
+
+    // 2. Mutate input for nodeA
+    mutateInput("input", { value: 20 });
+
+    // 3. Second full pull
+    const results = evalWorkbook(testWorkbookLoader);
+    strictEqual(countA, 2, "nodeA should be re-evaluated (it depends on mutated input)");
+    strictEqual(countB, 1, "nodeB should NOT be re-evaluated (it was already cached and is NOT stale)");
+    deepStrictEqual(results.nodeA, { result: 21 });
+    deepStrictEqual(results.nodeB, { result: 100 });
+    // results should also contain input node
+    strictEqual(results.input !== undefined, true);
+});
 
 test("Framework: memoization avoids redundant execution", () => {
     clearTrace();

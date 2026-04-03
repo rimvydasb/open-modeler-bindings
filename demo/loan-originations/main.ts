@@ -41,7 +41,7 @@ export const originationsWorkbook = (context: Record<string, any>): Record<strin
  */
 function runDemo() {
     console.log("--- Initial Evaluation ---");
-    const result = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
+    const { renderEligibilityResult: result } = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
     console.log("Eligibility Result:", JSON.stringify(result, null, 2));
 
     console.log("\n--- Mutating Birthday (Underage) ---");
@@ -53,7 +53,7 @@ function runDemo() {
         }
     });
 
-    const result2 = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
+    const { renderEligibilityResult: result2 } = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
     console.log("Eligibility Result (Underage):", JSON.stringify(result2, null, 2));
     
     console.log("\n--- Mutating Amount (Too High) ---");
@@ -62,7 +62,7 @@ function runDemo() {
         requestedAmount: 60000,
     });
 
-    const result3 = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
+    const { renderEligibilityResult: result3 } = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
     console.log("Eligibility Result (Too High):", JSON.stringify(result3, null, 2));
     console.log("TRACE_STORE:", JSON.stringify(TRACE_STORE, null, 2));
 }

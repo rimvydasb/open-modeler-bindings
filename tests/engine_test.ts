@@ -19,7 +19,7 @@ test("Engine: In-memory project loading and basic execution", async () => {
                 run: calcNode
             });
             export function run() {
-                return evalWorkbook(workbook, "run");
+                return evalWorkbook(workbook, "run").run;
             }
         `
     });
@@ -51,7 +51,7 @@ test("Engine: Reactive mutation and invalidation", async () => {
                 double: doubleNode
             });
 
-            export function run() { return evalWorkbook(workbook, "double"); }
+            export function run() { return evalWorkbook(workbook, "double").double; }
             export function getCalls() { return callCount; }
         `
     });
@@ -102,8 +102,8 @@ test("Engine: Full Reactive Lifecycle with multi-node dependencies", async () =>
                 calcB: calcB
             });
 
-            export function runA() { return evalWorkbook(workbook, "calcA"); }
-            export function runB() { return evalWorkbook(workbook, "calcB"); }
+            export function runA() { return evalWorkbook(workbook, "calcA").calcA; }
+            export function runB() { return evalWorkbook(workbook, "calcB").calcB; }
             export function getCalls() { return { a: calcACalls, b: calcBCalls }; }
         `
     });
@@ -168,7 +168,7 @@ test("Engine: Happy path with real loan-schedule demo and events", async () => {
 
     try {
         // 1. Initial Pull
-        const table = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
+        const { renderLoanScheduleTable: table } = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
         ok(table);
         strictEqual(table.length, 12);
         
@@ -195,7 +195,7 @@ test("Engine: Happy path with real loan-schedule demo and events", async () => {
         
         ok(inputChangedCalled, "onNodeDataChanged should be called for input mutation");
 
-        const updatedTable = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
+        const { renderLoanScheduleTable: updatedTable } = engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
         strictEqual(updatedTable.length, 24);
         ok(dataChangedCalled, "onNodeDataChanged should be called after mutation pull");
 
@@ -221,7 +221,7 @@ test("Engine: Loan Originations demo with termsNode", async () => {
     await engine.boot();
 
     try {
-        const result = engine.executeWorkbook("originationsWorkbook", "renderEligibilityResult");
+        const { renderEligibilityResult: result } = engine.executeWorkbook("originationsWorkbook", "renderEligibilityResult");
         ok(result);
         strictEqual(result[0].eligible, true, "John Doe should be eligible in engine");
 
@@ -238,7 +238,7 @@ test("Engine: Loan Originations demo with termsNode", async () => {
             termMonths: 36,
         });
 
-        const result2 = engine.executeWorkbook("originationsWorkbook", "renderEligibilityResult");
+        const { renderEligibilityResult: result2 } = engine.executeWorkbook("originationsWorkbook", "renderEligibilityResult");
         strictEqual(result2[0].eligible, false, "Baby Doe should not be eligible in engine");
     } catch (e) {
         console.log("Transpiled Code:\n", engine.getTranspiledCode());

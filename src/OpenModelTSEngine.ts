@@ -216,7 +216,7 @@ export class OpenModelTSEngine {
      * @param workbookName
      * @param nodeName
      */
-    executeWorkbook(workbookName: string, nodeName: string): any {
+    executeWorkbook(workbookName: string, nodeName?: string): Record<string, any> {
         return this.execute("evalWorkbook", vmRef(workbookName), nodeName);
     }
 

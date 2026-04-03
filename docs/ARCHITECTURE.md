@@ -28,6 +28,7 @@ To ensure alignment across the engineering team and architectural documentation,
 - **Thunk:** A zero-argument function that encapsulates the deferred execution of a Node.
 - **Pull Phase (Discovery & Evaluation):** The process of requesting the output of a Node. If the DAG is unmapped, this
   phase discovers and registers dependencies. If the DAG is known but stale, it recalculates only the necessary paths.
+  **Always returns a consolidated record of all workbook node results.**
 - **Push Phase (Invalidation):** The process of signaling that an input Node has changed. This phase pushes a "stale"
   flag forward through the DAG edges without executing business logic.
 - **Eventing System:** The communication bridge allowing the sandboxed VM to push lifecycle hooks (e.g., before/after
