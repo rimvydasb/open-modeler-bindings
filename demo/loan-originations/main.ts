@@ -1,10 +1,8 @@
 import {
-    node,
-    inputListNode,
-    evalWorkbook,
-    mutateInput,
-    termsNode,
-    outputTableNode, TRACE_STORE
+    Workbook,
+    Input,
+    Node,
+    Table, evalWorkbook, TRACE_STORE,
 } from "../../src/bindings.ts";
 import { ApplicationTerms, validateApplication } from "./library.ts";
 import type { Application } from "./types.ts";
@@ -19,24 +17,34 @@ export const INITIAL_APPLICATION: Application = {
     termMonths: 36,
 };
 
-export const originationsWorkbook = (context: Record<string, any>): Record<string, any> => ({
-    applicationInput: inputListNode("applicationInput", INITIAL_APPLICATION),
+@Workbook
+export class originationsWorkbook {
+    @Input
+    accessor applicationInput = INITIAL_APPLICATION;
 
-    // Use termsNode to extend Application and derive age
-    application: termsNode(ApplicationTerms, () => context.applicationInput().rows),
+    // Use a computed node to instantiate ApplicationTerms
+    @Node
+    get application() {
+        return new ApplicationTerms(this.applicationInput);
+    }
 
     // A standard node that uses the extended application
-    eligibility: node(validateApplication, {
-        age: () => context.application().applicantAge,
-        requestedAmount: () => context.application().requestedAmount,
-    }),
+    @Node
+    get eligibility() {
+        return validateApplication({
+            age: this.application.applicantAge,
+            requestedAmount: this.application.requestedAmount,
+        });
+    }
 
-    renderEligibilityResult: outputTableNode("renderEligibilityResult", {
-        rows: () => [context.eligibility()],
-    }),
-});
+    @Table
+    get renderEligibilityResult() {
+        return [this.eligibility];
+    }
+}
 
 if (import.meta.main) {
     const workbook = evalWorkbook(originationsWorkbook);
     console.log(JSON.stringify(workbook, null, 2));
+    //console.log("TRACE_STORE:\n", JSON.stringify(TRACE_STORE, null, 2));
 }

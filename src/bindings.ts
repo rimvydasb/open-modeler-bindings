@@ -42,53 +42,149 @@ function emitEvent(eventType: string, payload: any): void {
 /**
  * Generic evaluator for workbook-style dependency graphs.
  * This is the primary entry point for the Pull strategy.
- *
- * @param workbookLoader - A function that instantiates the workbook nodes.
- * @param nodeName - (Optional) The specific node to evaluate.
- * @returns
- *   - If nodeName is provided: The evaluation result of that specific node.
- *   - If nodeName is omitted: A Record<string, any> containing results for all nodes in the workbook.
- *
- * Implementation Detail: When nodeName is omitted, it performs a "Full Pull" by iterating through
- * all nodes. Thanks to the hybrid Push/Pull architecture, only "stale" nodes (invalidated by
- * mutateInput) or uninitialized nodes will actually be re-executed.
  */
 export function evalWorkbook<T extends Record<string, any>>(
-    workbookLoader: (context: any) => T,
+    workbookLoader: new () => T,
     nodeName?: keyof T
 ): Record<string, any> {
-    const context: any = {};
-    const workbook = workbookLoader(context);
-    Object.assign(context, workbook);
-
+    const workbook = new workbookLoader();
     const results: Record<string, any> = {};
 
-    if (nodeName !== undefined) {
-        if (typeof workbook[nodeName] === "function") {
-            results[String(nodeName)] = (workbook[nodeName] as any)();
-        } else {
-            throw new Error(`Node "${String(nodeName)}" not found in workbook.`);
-        }
-    } else {
-        for (const key in workbook) {
-            if (typeof workbook[key] === "function") {
-                results[key] = (workbook[key] as any)();
+    const processNode = (key: string) => {
+        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(workbook), key) ||
+            Object.getOwnPropertyDescriptor(workbook, key);
+
+        if (descriptor && typeof descriptor.get === 'function') {
+            const val = (workbook as any)[key];
+            // If it's an accessor with a setter, it's an @Input. 
+            // We wrap it in {rows: val} to match framework expectations for input nodes.
+            if (typeof descriptor.set === 'function') {
+                results[key] = {rows: val};
+            } else {
+                results[key] = val;
             }
+        }
+    };
+
+    if (nodeName !== undefined) {
+        processNode(String(nodeName));
+    } else {
+        // Iterate through all properties
+        const allProps = new Set<string>(Object.getOwnPropertyNames(workbook));
+
+        // Look at the prototype for decorators
+        const proto = Object.getPrototypeOf(workbook);
+        if (proto && proto !== Object.prototype) {
+            Object.getOwnPropertyNames(proto).forEach(p => allProps.add(p));
+        }
+
+        for (const key of allProps) {
+            if (key === 'constructor') continue;
+            processNode(key);
         }
     }
 
     // Consolidated Return: Fill in other nodes from TRACE_STORE if they aren't already in results
-    for (const key in workbook) {
-        if (typeof workbook[key] === "function" && results[key] === undefined) {
+    const allKnownNodes = new Set([...Object.keys(results), ...Object.keys(TRACE_STORE)]);
+    for (const key of allKnownNodes) {
+        if (results[key] === undefined) {
             const trace = TRACE_STORE[key];
             if (trace && trace.output !== undefined) {
                 results[key] = trace.output;
-            } else {
-                results[key] = undefined;
             }
         }
     }
+
     return results;
+}
+
+/**
+ * @Workbook Class Decorator
+ */
+export function Workbook<T extends { new (...args: any[]): {} }>(
+    target: T,
+    _context: ClassDecoratorContext<T>
+) {
+    return target;
+}
+
+/**
+ * @Input Accessor Decorator
+ */
+export function Input<This, Value>(
+    target: ClassAccessorDecoratorTarget<This, Value>,
+    context: ClassAccessorDecoratorContext<This, Value>
+) {
+    const nodeName = String(context.name);
+
+    return {
+        get(this: This): Value {
+            return executeWithTracking(nodeName, () => {
+                const value = target.get.call(this);
+                emitEvent('nodeDataChanged', {nodeName, data: value});
+                return {rows: value};
+            }).rows;
+        },
+        set(this: This, value: Value) {
+            target.set.call(this, value);
+            mutateInput(nodeName, value);
+        },
+        init(initialValue: Value) {
+            return initialValue;
+        }
+    };
+}
+
+/**
+ * @Node Getter Decorator
+ */
+export function Node<This, Return>(
+    target: (this: This) => Return,
+    context: ClassGetterDecoratorContext<This, Return>
+) {
+    const nodeName = String(context.name);
+    return function (this: This): Return {
+        return executeWithTracking(nodeName, () => {
+            emitEvent('beforeNodeExecution', {nodeName, input: TRACE_STORE[nodeName]?.input || {}});
+            const result = target.call(this);
+            emitEvent('afterNodeExecution', {nodeName, output: result});
+            return result;
+        });
+    };
+}
+
+/**
+ * @Chart Getter Decorator
+ */
+export function Chart<This, Return>(
+    target: (this: This) => Return,
+    context: ClassGetterDecoratorContext<This, Return>
+) {
+    const nodeName = String(context.name);
+    return function (this: This): Return {
+        return executeWithTracking(nodeName, () => {
+            const data = target.call(this);
+            emitEvent('nodeDataChanged', {nodeName, data});
+            return data;
+        }, {skipCache: true});
+    };
+}
+
+/**
+ * @Table Getter Decorator
+ */
+export function Table<This, Return>(
+    target: (this: This) => Return,
+    context: ClassGetterDecoratorContext<This, Return>
+) {
+    const nodeName = String(context.name);
+    return function (this: This): Return {
+        return executeWithTracking(nodeName, () => {
+            const data = target.call(this);
+            emitEvent('nodeDataChanged', {nodeName, data});
+            return data;
+        }, {skipCache: true});
+    };
 }
 
 /**
@@ -123,13 +219,6 @@ export function clearTrace(): void {
     for (const key in FORWARD_EDGES) {
         delete FORWARD_EDGES[key];
     }
-}
-
-/**
- * Standardized resolver for input values (handles both direct values and getter functions).
- */
-function resolveValue<T>(input: T | (() => T)): T {
-    return typeof input === 'function' ? (input as () => T)() : input;
 }
 
 /**
@@ -191,128 +280,6 @@ function executeWithTracking<T>(
 }
 
 /**
- * Defines a standard calculation node.
- * This node can also represent DMN Decision that has input and output pins.
- */
-export function node<T extends Record<string, any>, P extends object>(
-    invocation: (arg: P) => T,
-    inputs?: { [K in keyof P]: P[K] | (() => P[K]) }
-): () => T {
-    const nodeName = invocation.name;
-    if (!nodeName) {
-        throw new Error("Node function must have a name.");
-    }
-
-    return () => executeWithTracking(nodeName, () => {
-        const completeInputs = {} as P;
-        if (inputs) {
-            const nodeTrace = TRACE_STORE[nodeName];
-            if (!nodeTrace.input) {
-                nodeTrace.input = {};
-            }
-            const inputTrace = nodeTrace.input;
-
-            for (const key in inputs) {
-                const value = resolveValue(inputs[key] as any);
-                completeInputs[key as keyof P] = value;
-                inputTrace[key] = value;
-            }
-        }
-
-        emitEvent('beforeNodeExecution', {nodeName, input: TRACE_STORE[nodeName].input});
-        const result = invocation(completeInputs);
-        emitEvent('afterNodeExecution', {nodeName, output: result});
-
-        return result;
-    });
-}
-
-/**
- * Terms node that allows extending already existing input data and adding additional derivations.
- * Terms node helps to reduce overall nodes count by letting user define minor derivations that are directly related
- * to the given input data.
- */
-export function termsNode<T extends object, P extends object>(
-    nodeClass: new (data?: P) => T,
-    data?: P | (() => P)
-): () => T {
-    const nodeName = nodeClass.name;
-    if (!nodeName) {
-        throw new Error("Node class must have a name.");
-    }
-
-    return () => executeWithTracking(nodeName, () => {
-        const nodeTrace = TRACE_STORE[nodeName];
-        if (!nodeTrace.input) {
-            nodeTrace.input = {};
-        }
-        const inputTrace = nodeTrace.input;
-
-        const resolvedData = resolveValue(data);
-        inputTrace.data = resolvedData;
-
-        emitEvent('beforeNodeExecution', {nodeName, input: inputTrace});
-
-        const term = new nodeClass(resolvedData);
-
-        emitEvent('afterNodeExecution', {nodeName, output: term});
-
-        return term;
-    });
-}
-
-/**
- * Defines a visualization node for charts.
- */
-export function chartNode<T extends Record<string, any>>(
-    nodeName: string,
-    inputs: { input: T | (() => T) }
-): () => T {
-    return () => executeWithTracking(nodeName, () => {
-        const data = resolveValue(inputs.input);
-        console.log(`[Chart: ${nodeName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
-
-        emitEvent('nodeDataChanged', {nodeName, data});
-
-        return data;
-    }, {skipCache: true});
-}
-
-/**
- * Defines a visualization node for tables.
- */
-export function outputTableNode<T extends Record<string, any>>(
-    tableName: string,
-    inputs: { rows: T[] | (() => T[]) }
-): () => T[] {
-    return () => executeWithTracking(tableName, () => {
-        const data = resolveValue(inputs.rows);
-        console.log(`[Table: ${tableName}] processing ${Array.isArray(data) ? data.length : 1} items.`);
-
-        emitEvent('nodeDataChanged', {nodeName: tableName, data});
-
-        return data as unknown as T[];
-    }, {skipCache: true}) as unknown as T[];
-}
-
-/**
- * Defines an input node that holds data.
- */
-export function inputListNode<T>(
-    listName: string,
-    inputs: T
-): () => { rows: T } {
-    return () => executeWithTracking(listName, () => {
-        console.log(`[Input List: ${listName}] initialized.`);
-        const result = {rows: inputs};
-
-        emitEvent('nodeDataChanged', {nodeName: listName, data: inputs});
-
-        return result;
-    });
-}
-
-/**
  * Returns a topologically sorted list of node names.
  * Requires the graph to be fully discovered (e.g., after a full evaluation).
  */
@@ -346,16 +313,10 @@ export function getTopologicalOrder(): string[] {
 /**
  * Discovers all dependencies in a workbook by evaluating every node once.
  */
-export function validateWorkbook(workbookLoader: (context: any) => any): void {
-    const context: any = {};
-    const workbook = workbookLoader(context);
-    Object.assign(context, workbook);
-
-    for (const nodeName in workbook) {
-        if (typeof workbook[nodeName] === "function") {
-            workbook[nodeName]();
-        }
-    }
+export function validateWorkbook<T extends Record<string, any>>(
+    workbookLoader: new () => T
+): void {
+    evalWorkbook(workbookLoader);
 }
 
 /**

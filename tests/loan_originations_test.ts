@@ -5,37 +5,32 @@ import {
 import { 
     clearTrace, 
     getFromTrace, 
-    mutateInput
+    mutateInput,
+    evalWorkbook
 } from "../src/bindings.ts";
 
 describe("Loan Originations Demo", () => {
 
     it("correctly derives applicant age and eligibility", () => {
         clearTrace();
-        const workbook = {} as any;
-        const nodes = originationsWorkbook(workbook);
-        Object.assign(workbook, nodes);
-
-        // Trigger pull
-        const result = (nodes.renderEligibilityResult as any)();
+        // Use evalWorkbook to instantiate and evaluate
+        const results = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
 
         // Verify age is derived correctly (1990-01-01 to 2026-04-02 is 36)
-        const app = getFromTrace("ApplicationTerms.output");
+        const app = getFromTrace("application.output");
         expect(app).toBeTruthy();
         expect(app.applicantAge).toBe(36);
         
-        expect(result[0].eligible).toBe(true);
+        expect(results.renderEligibilityResult[0].eligible).toBe(true);
     });
 
     it("reacts to input mutations (age and amount limits)", () => {
         clearTrace();
-        const workbook = {} as any;
-        const nodes = originationsWorkbook(workbook);
-        Object.assign(workbook, nodes);
-
-        (nodes.renderEligibilityResult as any)();
         
-        // Mutate to underage
+        // 1. Initial Pull
+        evalWorkbook(originationsWorkbook, "renderEligibilityResult");
+        
+        // 2. Mutate to underage
         mutateInput("applicationInput", {
             customer: {
                 firstName: "Baby",
@@ -46,11 +41,11 @@ describe("Loan Originations Demo", () => {
             termMonths: 36,
         });
 
-        const result = (nodes.renderEligibilityResult as any)();
-        expect(result[0].eligible).toBe(false);
-        expect(result[0].reason).toBe("Applicant must be at least 18 years old.");
+        const results = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
+        expect(results.renderEligibilityResult[0].eligible).toBe(false);
+        expect(results.renderEligibilityResult[0].reason).toBe("Applicant must be at least 18 years old.");
         
-        // Mutate to too high amount
+        // 3. Mutate to too high amount
         mutateInput("applicationInput", {
             customer: {
                 firstName: "Rich",
@@ -61,9 +56,9 @@ describe("Loan Originations Demo", () => {
             termMonths: 36,
         });
         
-        const result2 = (nodes.renderEligibilityResult as any)();
-        expect(result2[0].eligible).toBe(false);
-        expect(result2[0].reason).toBe("Requested amount exceeds maximum limit of 50,000.");
+        const results2 = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
+        expect(results2.renderEligibilityResult[0].eligible).toBe(false);
+        expect(results2.renderEligibilityResult[0].reason).toBe("Requested amount exceeds maximum limit of 50,000.");
     });
 
 });

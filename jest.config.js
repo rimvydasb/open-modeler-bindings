@@ -12,6 +12,9 @@ export default {
             'ts-jest',
             {
                 useESM: true,
+                tsconfig: {
+                    target: 'ES2022',
+                },
             },
         ],
     },

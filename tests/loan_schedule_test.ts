@@ -6,28 +6,26 @@ import {
     clearTrace, 
     getFromTrace, 
     validateWorkbook, 
-    getTopologicalOrder 
+    getTopologicalOrder,
+    evalWorkbook
 } from "../src/bindings.ts";
 
 describe("Loan Schedule Demo", () => {
 
     it("triggers upstream chain on execution", () => {
         clearTrace();
-        const workbook = {} as any;
-        const nodes = (myWorkbook as any)(workbook);
-        Object.assign(workbook, nodes);
-
-        // Trigger pull from leaf
-        nodes.renderLoanBalanceChart();
+        // Use evalWorkbook to instantiate and evaluate
+        const results = evalWorkbook(myWorkbook, "renderLoanBalanceChart");
 
         // Verify upstream nodes were executed and traced
         expect(getFromTrace("calculateMonthlyPayment.output")).toBeTruthy();
         expect(getFromTrace("generateLoanSchedule.output")).toBeTruthy();
+        expect(results.renderLoanBalanceChart).toBeTruthy();
     });
 
     it("returns correct topological order", () => {
         clearTrace();
-        validateWorkbook(myWorkbook);
+        validateWorkbook(myWorkbook as any);
         const order = getTopologicalOrder();
         
         const idxInput = order.indexOf("inputVariables");

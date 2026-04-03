@@ -1,7 +1,8 @@
 import { describe, it, expect } from "@jest/globals";
 import { 
-    node, 
-    inputListNode, 
+    Workbook,
+    Input,
+    Node,
     mutateInput,
     clearTrace,
     getFromTrace,
@@ -13,13 +14,14 @@ describe("Framework Reactivity (bindings.ts)", () => {
 
     it("evalWorkbook without nodeName evaluates all nodes", () => {
         clearTrace();
-        const testWorkbookLoader = (context: any) => ({
-            nodeA: node(function nodeA() { return { result: 1 }; }),
-            nodeB: node(function nodeB() { return { result: 2 }; }),
-            someStaticValue: "not a function"
-        });
+        
+        @Workbook
+        class TestWorkbook {
+            @Node get nodeA() { return { result: 1 }; }
+            @Node get nodeB() { return { result: 2 }; }
+        }
 
-        const results = evalWorkbook(testWorkbookLoader);
+        const results = evalWorkbook(TestWorkbook);
 
         expect(results).toEqual({
             nodeA: { result: 1 },
@@ -32,19 +34,20 @@ describe("Framework Reactivity (bindings.ts)", () => {
         let callCountA = 0;
         let callCountB = 0;
 
-        const testWorkbookLoader = (context: any) => ({
-            nodeA: node(function nodeA() {
+        @Workbook
+        class TestWorkbook {
+            @Node get nodeA() {
                 callCountA++;
                 return { result: 'A' };
-            }),
-            nodeB: node(function nodeB() {
+            }
+            @Node get nodeB() {
                 callCountB++;
                 return { result: 'B' };
-            })
-        });
+            }
+        }
 
         // 1. Evaluate only nodeA
-        const resultsA = evalWorkbook(testWorkbookLoader, "nodeA");
+        const resultsA = evalWorkbook(TestWorkbook, "nodeA");
         expect(resultsA).toEqual({
             nodeA: { result: 'A' },
             nodeB: undefined
@@ -53,7 +56,7 @@ describe("Framework Reactivity (bindings.ts)", () => {
         expect(callCountB).toBe(0);
 
         // 2. Evaluate only nodeB
-        const resultsB = evalWorkbook(testWorkbookLoader, "nodeB");
+        const resultsB = evalWorkbook(TestWorkbook, "nodeB");
         expect(resultsB).toEqual({
             nodeA: { result: 'A' },
             nodeB: { result: 'B' }
@@ -67,20 +70,21 @@ describe("Framework Reactivity (bindings.ts)", () => {
         let countA = 0;
         let countB = 0;
 
-        const testWorkbookLoader = (context: any) => ({
-            input: inputListNode("input", { value: 10 }),
-            nodeA: node(function nodeA() {
+        @Workbook
+        class TestWorkbook {
+            @Input accessor input = { value: 10 };
+            @Node get nodeA() {
                 countA++;
-                return { result: context.input().rows.value + 1 };
-            }),
-            nodeB: node(function nodeB() {
+                return { result: this.input.value + 1 };
+            }
+            @Node get nodeB() {
                 countB++;
                 return { result: 100 };
-            })
-        });
+            }
+        }
 
         // 1. Initial full pull
-        evalWorkbook(testWorkbookLoader);
+        evalWorkbook(TestWorkbook);
         expect(countA).toBe(1);
         expect(countB).toBe(1);
 
@@ -88,30 +92,31 @@ describe("Framework Reactivity (bindings.ts)", () => {
         mutateInput("input", { value: 20 });
 
         // 3. Second full pull
-        const results = evalWorkbook(testWorkbookLoader);
+        const results = evalWorkbook(TestWorkbook);
         expect(countA).toBe(2);
         expect(countB).toBe(1);
         expect(results.nodeA).toEqual({ result: 21 });
         expect(results.nodeB).toEqual({ result: 100 });
         // results should also contain input node
-        expect(results.input !== undefined).toBe(true);
+        expect(results.input).toEqual({ rows: { value: 20 } });
     });
 
     it("memoization avoids redundant execution", () => {
         clearTrace();
         let callCount = 0;
-        const testWorkbookLoader = (context: any) => ({
-            nodeA: node(function nodeA() {
+        
+        @Workbook
+        class TestWorkbook {
+            @Node get nodeA() {
                 callCount++;
                 return { result: 42 };
-            })
-        });
+            }
+        }
         
-        const workbook = {} as any;
-        Object.assign(workbook, testWorkbookLoader(workbook));
+        const workbook = new TestWorkbook();
 
-        workbook.nodeA();
-        workbook.nodeA();
+        workbook.nodeA;
+        workbook.nodeA;
         
         expect(callCount).toBe(1);
     });
@@ -119,19 +124,20 @@ describe("Framework Reactivity (bindings.ts)", () => {
     it("mutateInput invalidates downstream nodes", () => {
         clearTrace();
         let callCount = 0;
-        const testWorkbookLoader = (context: any) => ({
-            input: inputListNode("input", { val: 1 }),
-            calc: node(function calc({v}: {v: number}) {
+
+        @Workbook
+        class TestWorkbook {
+            @Input accessor input = { val: 1 };
+            @Node get calc() {
                 callCount++;
-                return { result: v + 10 };
-            }, { v: () => context.input().rows.val })
-        });
+                return { result: this.input.val + 10 };
+            }
+        }
         
-        const workbook = {} as any;
-        Object.assign(workbook, testWorkbookLoader(workbook));
+        const workbook = new TestWorkbook();
 
         // 1. Initial Pull
-        const res1 = workbook.calc();
+        const res1 = workbook.calc;
         expect(res1.result).toBe(11);
         expect(callCount).toBe(1);
 
@@ -140,7 +146,7 @@ describe("Framework Reactivity (bindings.ts)", () => {
         expect(getFromTrace("calc.stale")).toBe(true);
 
         // 3. Second Pull (Targeted)
-        const res2 = workbook.calc();
+        const res2 = workbook.calc;
         expect(res2.result).toBe(15);
         expect(callCount).toBe(2);
     });
@@ -150,64 +156,62 @@ describe("Framework Reactivity (bindings.ts)", () => {
         let calcACount = 0;
         let calcBCount = 0;
 
-        const testWorkbookLoader = (context: any) => ({
-            inputA: inputListNode("inputA", { val: 1 }),
-            inputB: inputListNode("inputB", { val: 1 }),
-            calcA: node(function calcA({v}: {v: number}) {
+        @Workbook
+        class TestWorkbook {
+            @Input accessor inputA = { val: 1 };
+            @Input accessor inputB = { val: 1 };
+            @Node get calcA() {
                 calcACount++;
-                return { result: v + 1 };
-            }, { v: () => context.inputA().rows.val }),
-            calcB: node(function calcB({v}: {v: number}) {
+                return { result: this.inputA.val + 1 };
+            }
+            @Node get calcB() {
                 calcBCount++;
-                return { result: v + 1 };
-            }, { v: () => context.inputB().rows.val })
-        });
+                return { result: this.inputB.val + 1 };
+            }
+        }
 
-        const workbook = {} as any;
-        Object.assign(workbook, testWorkbookLoader(workbook));
+        const workbook = new TestWorkbook();
 
-        workbook.calcA();
-        workbook.calcB();
+        workbook.calcA;
+        workbook.calcB;
         
         mutateInput("inputA", { val: 10 });
         
         expect(getFromTrace("calcA.stale")).toBe(true);
         expect(getFromTrace("calcB.stale")).toBe(false);
 
-        workbook.calcB();
+        workbook.calcB;
         expect(calcBCount).toBe(1);
     });
 
     it("detect circular dependencies", () => {
         clearTrace();
-        const circularWorkbook = (context: any) => ({
-            nodeA: node(function nodeA() { return { result: (context.nodeB?.().result || 0) + 1 }; }, {
-                b: () => context.nodeB()
-            }),
-            nodeB: node(function nodeB() { return { result: (context.nodeA?.().result || 0) + 1 }; }, {
-                a: () => context.nodeA()
-            })
-        });
+        
+        @Workbook
+        class CircularWorkbook {
+            @Node get nodeA(): any { return { result: (this.nodeB.result || 0) + 1 }; }
+            @Node get nodeB(): any { return { result: (this.nodeA.result || 0) + 1 }; }
+        }
 
         expect(
-            () => validateWorkbook(circularWorkbook)
+            () => validateWorkbook(CircularWorkbook)
         ).toThrow(/Circular dependency detected/);
     });
 
     it("enforce named outputs", () => {
         clearTrace();
-        const invalidWorkbook = (context: any) => ({
-            // @ts-ignore
-            badNode: node(function badNode() {
+        
+        @Workbook
+        class InvalidWorkbook {
+            @Node get badNode(): any {
                 return 42; // Invalid: scalar output
-            })
-        });
+            }
+        }
 
-        const workbook = {} as any;
-        Object.assign(workbook, invalidWorkbook(workbook));
+        const workbook = new InvalidWorkbook();
 
         expect(
-            () => workbook.badNode()
+            () => workbook.badNode
         ).toThrow(/must return a named output \(object\)/);
     });
 

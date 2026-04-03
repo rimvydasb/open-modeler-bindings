@@ -124,8 +124,8 @@ export class OpenModelTSEngine {
         code = code.replace(/exports\./gm, "");
 
         code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, "$1");
-        code = code.replace(/\w+\.(\w+)/g, (match, p1) => {
-            if (match.includes("_ts_")) return p1;
+        code = code.replace(/(\w+)\.(\w+)/g, (match, p1, p2) => {
+            if (p1.includes("_ts_") || p1.startsWith("bindings")) return p2;
             return match;
         });
 
