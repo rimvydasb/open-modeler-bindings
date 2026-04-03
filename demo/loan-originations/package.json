@@ -5,6 +5,23 @@
     "type": "module",
     "license": "MIT",
     "author": "Rimvydas Bingelis",
+    "keywords": [
+        "loan",
+        "origination",
+        "demo",
+        "rules"
+    ],
+    "main": "./main.ts",
+    "exports": {
+        ".": "./main.ts",
+        "./library": "./library.ts",
+        "./types": "./types.ts"
+    },
+    "files": [
+        "main.ts",
+        "library.ts",
+        "types.ts"
+    ],
     "scripts": {
         "start": "tsx main.ts"
     },
