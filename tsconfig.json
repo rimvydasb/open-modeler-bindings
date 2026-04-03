@@ -10,7 +10,8 @@
     "forceConsistentCasingInFileNames": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "types": ["node"]
+    "isolatedModules": true,
+    "types": ["node", "jest"]
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "demo/loan-schedule-gui"]

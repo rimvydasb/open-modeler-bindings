@@ -43,15 +43,6 @@ export const myWorkbook = (context: Record<string, any>): Record<string, any> =>
 });
 
 if (import.meta.main) {
-    console.log("--- Initial Evaluation ---");
-    evalWorkbook(myWorkbook, "renderLoanScheduleTable");
-
-    console.log("\n--- Mutating Input (Push) ---");
-    mutateInput("inputVariables", {
-        ...INPUT_VARIABLES,
-        loanAmount: 200000,
-    });
-
-    console.log("\n--- Second Evaluation (Targeted Pull) ---");
-    evalWorkbook(myWorkbook, "renderLoanScheduleTable");
+    const workbook = evalWorkbook(myWorkbook);
+    console.log(JSON.stringify(workbook, null, 2));
 }

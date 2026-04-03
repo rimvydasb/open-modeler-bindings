@@ -36,38 +36,7 @@ export const originationsWorkbook = (context: Record<string, any>): Record<strin
     }),
 });
 
-/**
- * For testing and demonstration purposes.
- */
-function runDemo() {
-    console.log("--- Initial Evaluation ---");
-    const { renderEligibilityResult: result } = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
-    console.log("Eligibility Result:", JSON.stringify(result, null, 2));
-
-    console.log("\n--- Mutating Birthday (Underage) ---");
-    mutateInput("applicationInput", {
-        ...INITIAL_APPLICATION,
-        customer: {
-            ...INITIAL_APPLICATION.customer,
-            birthday: new Date("2015-01-01"), // 11 years old in 2026
-        }
-    });
-
-    const { renderEligibilityResult: result2 } = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
-    console.log("Eligibility Result (Underage):", JSON.stringify(result2, null, 2));
-    
-    console.log("\n--- Mutating Amount (Too High) ---");
-    mutateInput("applicationInput", {
-        ...INITIAL_APPLICATION,
-        requestedAmount: 60000,
-    });
-
-    const { renderEligibilityResult: result3 } = evalWorkbook(originationsWorkbook, "renderEligibilityResult");
-    console.log("Eligibility Result (Too High):", JSON.stringify(result3, null, 2));
-    console.log("TRACE_STORE:", JSON.stringify(TRACE_STORE, null, 2));
-}
-
-// Use import.meta.main for local execution; engine sanitization will strip this block.
 if (import.meta.main) {
-    runDemo();
+    const workbook = evalWorkbook(originationsWorkbook);
+    console.log(JSON.stringify(workbook, null, 2));
 }

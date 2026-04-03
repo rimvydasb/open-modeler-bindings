@@ -1,5 +1,4 @@
-import { test } from "node:test";
-import { strictEqual, ok } from "node:assert/strict";
+import { describe, it, expect } from "@jest/globals";
 import { 
     myWorkbook
 } from "../demo/loan-schedule/main.ts";
@@ -10,33 +9,37 @@ import {
     getTopologicalOrder 
 } from "../src/bindings.ts";
 
-test("Loan Schedule: basic execution triggers upstream chain", () => {
-    clearTrace();
-    const workbook = {} as any;
-    const nodes = myWorkbook(workbook);
-    Object.assign(workbook, nodes);
+describe("Loan Schedule Demo", () => {
 
-    // Trigger pull from leaf
-    nodes.renderLoanBalanceChart();
+    it("triggers upstream chain on execution", () => {
+        clearTrace();
+        const workbook = {} as any;
+        const nodes = (myWorkbook as any)(workbook);
+        Object.assign(workbook, nodes);
 
-    // Verify upstream nodes were executed and traced
-    ok(getFromTrace("calculateMonthlyPayment.output"));
-    ok(getFromTrace("generateLoanSchedule.output"));
-});
+        // Trigger pull from leaf
+        nodes.renderLoanBalanceChart();
 
-test("Loan Schedule: topological sort returns correct order", () => {
-    clearTrace();
-    validateWorkbook(myWorkbook);
-    const order = getTopologicalOrder();
-    
-    const idxInput = order.indexOf("inputVariables");
-    const idxCalc = order.indexOf("calculateMonthlyPayment");
-    const idxSchedule = order.indexOf("generateLoanSchedule");
+        // Verify upstream nodes were executed and traced
+        expect(getFromTrace("calculateMonthlyPayment.output")).toBeTruthy();
+        expect(getFromTrace("generateLoanSchedule.output")).toBeTruthy();
+    });
 
-    ok(idxInput !== -1);
-    ok(idxCalc !== -1);
-    ok(idxSchedule !== -1);
-    
-    strictEqual(idxInput < idxCalc, true, "Source must come before dependent");
-    strictEqual(idxCalc < idxSchedule, true, "Source must come before dependent");
+    it("returns correct topological order", () => {
+        clearTrace();
+        validateWorkbook(myWorkbook);
+        const order = getTopologicalOrder();
+        
+        const idxInput = order.indexOf("inputVariables");
+        const idxCalc = order.indexOf("calculateMonthlyPayment");
+        const idxSchedule = order.indexOf("generateLoanSchedule");
+
+        expect(idxInput).not.toBe(-1);
+        expect(idxCalc).not.toBe(-1);
+        expect(idxSchedule).not.toBe(-1);
+        
+        expect(idxInput < idxCalc).toBe(true);
+        expect(idxCalc < idxSchedule).toBe(true);
+    });
+
 });
