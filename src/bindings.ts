@@ -195,23 +195,6 @@ export function getFromTrace(path: string): any {
 }
 
 /**
- * Records a value in the trace store using a dot-notated path.
- */
-export function trace(path: string, value: any): any {
-    const parts = path.split('.');
-    let current = TRACE_STORE as any;
-    for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-        if (current[part] === undefined) {
-            current[part] = {};
-        }
-        current = current[part];
-    }
-    current[parts[parts.length - 1]] = value;
-    return value;
-}
-
-/**
  * Resets the trace store and forward edges.
  */
 export function clearTrace(): void {
