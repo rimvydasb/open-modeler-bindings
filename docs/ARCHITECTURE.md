@@ -22,7 +22,12 @@ To ensure alignment across the engineering team and architectural documentation,
   rendering function).
     - **InputNode:** A source node providing external data from the Host.
     - **FunctionNode:** A pure business logic calculation node that produces new data and caches it in the trace.
+    - **TermsNode:** A specialized container node used to instantiate a `TermsSet`. It acts as a namespace, skipping its
+      own execution lifecycle events to allow granular, on-demand execution and tracing of its inner terms.
     - **OutputNode / ChartNode:** terminal UI-bound nodes that push data directly to the Host.
+- **TermsSet:** A class-level definition of terms. When a class is marked with `@TermsSet`, all of its getter methods
+  are implicitly treated as individual terms. Their results are tracked and cached specifically for that class instance,
+  updating the global trace accordingly.
 - **Thunk:** A zero-argument function that encapsulates the deferred execution of a Node.
 - **Pull Phase (Discovery & Evaluation):** The process of requesting the output of a Node. If the DAG is unmapped, this
   phase discovers and registers dependencies. If the DAG is known but stale, it recalculates only the necessary paths.

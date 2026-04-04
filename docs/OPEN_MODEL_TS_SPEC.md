@@ -36,19 +36,42 @@ Defines a reactive input node. Inputs are the root sources of data in the DAG.
 
 Defines a derived, computed node in the DAG.
 
-* **Purpose:** Intercepts getter access to provide **memoization** and **automatic dependency tracking**. When a `@FunctionNode`
+* **Purpose:** Intercepts getter access to provide **memoization** and **automatic dependency tracking**. When a
+  `@FunctionNode`
   getter is accessed, the engine checks if it is stale. If not, it returns the cached result. If stale, it executes the
-  getter body. Any other `@FunctionNode` or `@InputNode` accessed during this execution is automatically registered as a dependency.
+  getter body. Any other `@FunctionNode` or `@InputNode` accessed during this execution is automatically registered as a
+  dependency.
 * **Usage:** Applied to `get` accessors.
 
 ### 2.4 `@ChartNode` and `@OutputNode` (Getter Decorators)
 
 Defines terminal (leaf) nodes specifically for data visualization or output.
 
-* **Purpose:** Similar to `@FunctionNode`, but these decorators specifically emit host-environment events (`nodeDataChanged`)
+* **Purpose:** Similar to `@FunctionNode`, but these decorators specifically emit host-environment events (
+  `nodeDataChanged`)
   when evaluated and may opt out of strict caching to ensure fresh data is always provided to the UI.
 * **Usage:** Applied to `get` accessors.
-* **@OutputNode:** Represents a terminal data node. It is dynamic and can return scalars, lists, or complex table structures depending on the model's needs.
+* **@OutputNode:** Represents a terminal data node. It is dynamic and can return scalars, lists, or complex table
+  structures depending on the model's needs.
+
+### 2.5 `@TermsNode` (Getter Decorator)
+
+Defines a container node that instantiates a terms class (a `TermsSet`).
+
+* **Purpose:** Acts as a namespace for a collection of terms. Unlike a standard `@FunctionNode`, a `@TermsNode` skips
+  emitting `beforeNodeExecution` and `afterNodeExecution` events for its own instantiation. Instead, it enables the
+  granular tracking of the individual terms accessed within the instantiated `TermsSet`.
+* **Usage:** Applied to a `get` accessor that returns an instance of a class decorated with `@TermsSet`.
+
+### 2.6 `@TermsSet` (Class Decorator)
+
+Marks a class as a collection of lazily-evaluated terms.
+
+* **Purpose:** Serves as a metadata marker for `ts-morph` and the reactivity engine. When a class is decorated with
+  `@TermsSet`, **all of its getter methods are implicitly treated as tracked terms**. When a term (getter) is accessed,
+  its result is cached for that specific class instance, and the global `TRACE_STORE` is updated with a composite key (
+  e.g., `NodeName.TermName`). This allows for highly granular, on-demand execution of complex structures.
+* **Usage:** Applied to the class declaration of a terms model.
 
 ---
 
@@ -58,9 +81,19 @@ OpenModelTS utilizes class getters and decorators. Dependencies are auto-discove
 access.
 
 ```typescript
-import {Workbook, InputNode, FunctionNode, ChartNode, OutputNode} from "@open-modeler/bindings";
+import {Workbook, InputNode, FunctionNode, ChartNode, OutputNode, TermsNode, TermsSet} from "@open-modeler/bindings";
 import {calculateMonthlyPayment, generateLoanSchedule} from "./library";
 import {INPUT_VARIABLES} from "./types";
+
+@TermsSet
+export class ApplicationTerms {
+    constructor(private data: any) {
+    }
+
+    get requestedAmount() {
+        return this.data.loanAmount;
+    }
+}
 
 @Workbook
 export class LoanScheduleModel {
@@ -69,11 +102,18 @@ export class LoanScheduleModel {
     @InputNode
     accessor variables = INPUT_VARIABLES;
 
-    // 2. Computed Node (Auto-tracked & Memoized)
+    // 2. Terms Node (Instantiates a TermsSet, enabling granular tracking of its fields)
+    @TermsNode
+    get application() {
+        return new ApplicationTerms(this.variables);
+    }
+
+    // 3. Computed Node (Auto-tracked & Memoized)
     @FunctionNode
     get monthlyPayment() {
+        // Accessing this.application.requestedAmount triggers tracking for that specific term
         return calculateMonthlyPayment({
-            principal: this.variables.loanAmount,
+            principal: this.application.requestedAmount,
             months: this.variables.termMonths,
             annualRate: this.variables.annualInterestRate,
         });
@@ -149,7 +189,8 @@ Because this specification relies on standard TypeScript classes:
 
 To support this specification, `src/bindings.ts` provides:
 
-1. Exported decorator functions (`@Workbook`, `@InputNode`, `@FunctionNode`, `@ChartNode`, `@OutputNode`) utilizing TS 5.0
-   `ClassGetterDecoratorContext` and `ClassAccessorDecoratorContext`.
+1. Exported decorator functions (`@Workbook`, `@InputNode`, `@FunctionNode`, `@ChartNode`, `@OutputNode`, `@TermsNode`,
+   `@TermsSet`) utilizing TS 5.0
+   `ClassGetterDecoratorContext`, `ClassAccessorDecoratorContext`, and `ClassDecoratorContext`.
 2. `executeWithTracking` function that handles class instance contexts and property-based identification.
 3. `evalWorkbook` and `mutateInput` host-bridge functions that interact seamlessly with Workbook classes.
