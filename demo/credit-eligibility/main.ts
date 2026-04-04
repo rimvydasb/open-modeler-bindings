@@ -1,12 +1,13 @@
 import {
     Workbook,
     InputNode,
+    TermsNode,
     FunctionNode,
     OutputNode,
     evalWorkbook
 } from "../../src/bindings.ts";
 import { CreditApplication, EligibilityResult } from "./types.ts";
-import { applicationEligibility, applicantEligibility } from "./library.ts";
+import { ApplicationTerms, validateApplicationEligibility, validateApplicantEligibility } from "./library.ts";
 
 export const INITIAL_APPLICATION: CreditApplication = {
     id: "APP-1001",
@@ -35,17 +36,22 @@ export const INITIAL_APPLICATION: CreditApplication = {
 @Workbook
 export class CreditEligibilityModel {
     @InputNode
-    accessor application = INITIAL_APPLICATION;
+    accessor applicationInput = INITIAL_APPLICATION;
+
+    @TermsNode
+    get application() {
+        return new ApplicationTerms(this.applicationInput);
+    }
 
     @FunctionNode
     get appEligibility() {
-        return applicationEligibility(this.application);
+        return validateApplicationEligibility(this.application);
     }
 
     @FunctionNode
     get applicantsEligibility() {
         return {
-            results: this.application.applicants.map(app => applicantEligibility(app))
+            results: this.application.applicants.map(app => validateApplicantEligibility(app))
         };
     }
 
@@ -56,7 +62,7 @@ export class CreditEligibilityModel {
             isApplicationEligible: this.appEligibility.eligible,
             applicationReason: this.appEligibility.reason,
             applicantResults: this.applicantsEligibility.results.map((res, i) => ({
-                name: `${this.application.applicants[i].firstName} ${this.application.applicants[i].lastName}`,
+                name: this.application.applicants[i].fullName,
                 isEligible: res.eligible,
                 reason: res.reason
             }))

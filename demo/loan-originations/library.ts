@@ -1,5 +1,7 @@
+import { TermsSet } from "../../src/bindings.ts";
 import type { Application } from "./types.ts";
 
+@TermsSet
 export class ApplicationTerms {
     public data!: Application;
 

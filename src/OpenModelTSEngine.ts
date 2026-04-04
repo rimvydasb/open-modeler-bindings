@@ -51,6 +51,8 @@ export class OpenModelTSEngine {
 
     private beforeExecListeners = new Map<string, NodeExecutionCallback>();
     private afterExecListeners = new Map<string, NodeExecutionCallback>();
+    private beforeTermExecListeners = new Map<string, NodeExecutionCallback>();
+    private afterTermExecListeners = new Map<string, NodeExecutionCallback>();
     private dataChangedListeners = new Map<string, NodeDataCallback>();
 
     constructor(options: EngineOptions = {}) {
@@ -183,6 +185,14 @@ export class OpenModelTSEngine {
             const { nodeName, output } = payload;
             const listener = this.afterExecListeners.get(nodeName);
             if (listener) listener(output);
+        } else if (type === 'beforeTermExecution') {
+            const { nodeName, input } = payload;
+            const listener = this.beforeTermExecListeners.get(nodeName);
+            if (listener) listener(input);
+        } else if (type === 'afterTermExecution') {
+            const { nodeName, output } = payload;
+            const listener = this.afterTermExecListeners.get(nodeName);
+            if (listener) listener(output);
         } else if (type === 'nodeDataChanged') {
             const { nodeName, data } = payload;
             const listener = this.dataChangedListeners.get(nodeName);
@@ -196,6 +206,14 @@ export class OpenModelTSEngine {
 
     onAfterNodeExecution(_workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
         this.afterExecListeners.set(nodeName, callback);
+    }
+
+    onBeforeTermExecution(_workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
+        this.beforeTermExecListeners.set(nodeName, callback);
+    }
+
+    onAfterTermExecution(_workbookName: string, nodeName: string, callback: NodeExecutionCallback): void {
+        this.afterTermExecListeners.set(nodeName, callback);
     }
 
     onNodeDataChanged(_workbookName: string, nodeName: string, callback: NodeDataCallback): void {

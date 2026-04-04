@@ -174,6 +174,53 @@ describe("OpenModelTSEngine", () => {
         expect(afterCalled).toBe(true);
     });
 
+    it("emits term execution events correctly", async () => {
+        const engine = new OpenModelTSEngine();
+        await engine.loadProject({
+            "/bindings.ts": `
+                export function Workbook(target) { return target; }
+                export function TermsSet(target) { target.__isTermsSet = true; return target; }
+                export function TermsNode(target, context) { return target; }
+                export function evalWorkbook(loader) {
+                    const w = new loader();
+                    __emitEvent('beforeTermExecution', { nodeName: 'application.age', input: {} });
+                    const res = w.application.age;
+                    __emitEvent('afterTermExecution', { nodeName: 'application.age', output: res });
+                    return { age: res };
+                }
+            `,
+            "/main.ts": `
+                import { Workbook, TermsSet, TermsNode } from "./bindings";
+                @TermsSet
+                class AppTerms {
+                    get age() { return 30; }
+                }
+                @Workbook
+                export class myWorkbook {
+                    @TermsNode get application() { return new AppTerms(); }
+                }
+            `
+        });
+        await engine.boot();
+
+        let beforeCalled = false;
+        let afterCalled = false;
+
+        engine.onBeforeTermExecution("myWorkbook", "application.age", (input) => {
+            beforeCalled = true;
+        });
+
+        engine.onAfterTermExecution("myWorkbook", "application.age", (output) => {
+            afterCalled = true;
+            expect(output).toBe(30);
+        });
+
+        engine.executeWorkbook("myWorkbook", "application");
+
+        expect(beforeCalled).toBe(true);
+        expect(afterCalled).toBe(true);
+    });
+
     it("supports OutputNodes with event emission", async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({

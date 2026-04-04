@@ -1,9 +1,33 @@
+import { TermsSet } from "../../src/bindings.ts";
 import { Applicant, CreditApplication, EligibilityResult } from "./types.ts";
+
+@TermsSet
+export class ApplicantTerms {
+    constructor(private data: Applicant) {}
+
+    get age() { return this.data.age; }
+    get creditScore() { return this.data.creditScore; }
+    get annualIncome() { return this.data.annualIncome; }
+    get fullName() { return `${this.data.firstName} ${this.data.lastName}`; }
+}
+
+@TermsSet
+export class ApplicationTerms {
+    constructor(private data: CreditApplication) {}
+
+    get id() { return this.data.id; }
+    get requestedAmount() { return this.data.requestedAmount; }
+    get termMonths() { return this.data.termMonths; }
+    
+    get applicants() {
+        return this.data.applicants.map(a => new ApplicantTerms(a));
+    }
+}
 
 /**
  * Validates general application constraints.
  */
-export function applicationEligibility(app: CreditApplication): EligibilityResult {
+export function validateApplicationEligibility(app: ApplicationTerms): EligibilityResult {
     if (app.requestedAmount > 1000000) {
         return { eligible: false, reason: "Requested amount exceeds the maximum limit of 1,000,000." };
     }
@@ -16,15 +40,15 @@ export function applicationEligibility(app: CreditApplication): EligibilityResul
 /**
  * Validates individual applicant constraints.
  */
-export function applicantEligibility(applicant: Applicant): EligibilityResult {
+export function validateApplicantEligibility(applicant: ApplicantTerms): EligibilityResult {
     if (applicant.age < 18) {
-        return { eligible: false, reason: `${applicant.firstName} ${applicant.lastName} must be at least 18 years old.` };
+        return { eligible: false, reason: `${applicant.fullName} must be at least 18 years old.` };
     }
     if (applicant.creditScore < 600) {
-        return { eligible: false, reason: `${applicant.firstName} ${applicant.lastName} has an insufficient credit score.` };
+        return { eligible: false, reason: `${applicant.fullName} has an insufficient credit score.` };
     }
     if (applicant.annualIncome < 15000) {
-        return { eligible: false, reason: `${applicant.firstName} ${applicant.lastName} has an insufficient annual income.` };
+        return { eligible: false, reason: `${applicant.fullName} has an insufficient annual income.` };
     }
     return { eligible: true };
 }

@@ -31,6 +31,8 @@ classDiagram
         +mutate~T~(nodeName: string, value: T) void
         +onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
         +onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
+        +onBeforeTermExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
+        +onAfterTermExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
         +onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void) void
         +dispose() void
         -transpile()
@@ -105,7 +107,6 @@ Environment.
   UI for heavy formulas.
 
 ####
-
 `onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void`
 
 - **Purpose:** Intercepts the execution flow immediately after a pure calculation `@FunctionNode` evaluates
@@ -113,6 +114,21 @@ Environment.
 - **Payload (`output`):** The resulting named output object produced by the node.
 - **Use Case:** Telemetry, auditing business logic results, or caching intermediate calculation states without binding
   them directly to UI components.
+
+####
+`onBeforeTermExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void`
+
+- **Purpose:** Intercepts the execution flow immediately before a specific term within a `@TermsNode` evaluates.
+- **Payload (`input`):** Usually an empty object, as terms derive their input from the parent container.
+- **Use Case:** Profiling granular term evaluation within complex structures.
+
+####
+`onAfterTermExecution(workbookName: string, nodeName: string, callback: (output: any) => void): void`
+
+- **Purpose:** Intercepts the execution flow immediately after a specific term within a `@TermsNode` evaluates.
+- **Payload (`output`):** The resulting data (scalar or object) produced by the term.
+- **Use Case:** Monitoring the fine-grained data flow of individual terms.
+
 
 #### `onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void): void`
 
@@ -303,8 +319,8 @@ evaluate their upstream dependencies and push that data directly to the Host Env
 
 | Node Type       | Architectural Role | VM Trace Behavior     | Associated Events                                  | Description                                                                                                        |
 |-----------------|--------------------|-----------------------|----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
-| `@InputNode`    | Source Node        | Cached in Trace       | `onNodeDataChanged`                                | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation.                               |
-| `@FunctionNode` | Calculation Node   | Cached in Trace       | `onBeforeNodeExecution`,<br>`onAfterNodeExecution` | Pure business logic computation. Memoizes results to prevent redundant calculation.                                |
-| `@TermsNode`    | Container Node     | Bypasses Trace (Self) | Inner terms emit events                            | Instantiates a `TermsSet`. Skips self-events; inner terms are cached granularly.                                   |
-| `@ChartNode`    | Sink / Effect Node | **Bypasses Trace**    | `onNodeDataChanged`                                | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.                                 |
-| `@OutputNode`   | Sink / Effect Node | **Bypasses Trace**    | `onNodeDataChanged`                                | Evaluates data specifically for various output renderings (scalar, list, table). Pushes data directly to the Host. |
+| `@InputNode`    | Source Node        | Cached in Trace       | `onNodeDataChanged`                                                     | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation.                               |
+| `@FunctionNode` | Calculation Node   | Cached in Trace       | `onBeforeNodeExecution`,<br>`onAfterNodeExecution`                      | Pure business logic computation. Memoizes results to prevent redundant calculation.                                |
+| `@TermsNode`    | Container Node     | Bypasses Trace (Self) | `onBeforeTermExecution`,<br>`onAfterTermExecution` (Inner terms)        | Instantiates a `TermsSet`. Skips self-events; inner terms are cached granularly.                                   |
+| `@ChartNode`    | Sink / Effect Node | **Bypasses Trace**    | `onNodeDataChanged`                                                     | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.                                 |
+| `@OutputNode`   | Sink / Effect Node | **Bypasses Trace**    | `onNodeDataChanged`                                                     | Evaluates data specifically for various output renderings (scalar, list, table). Pushes data directly to the Host. |

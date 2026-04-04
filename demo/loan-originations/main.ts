@@ -1,6 +1,7 @@
 import {
     Workbook,
     InputNode,
+    TermsNode,
     FunctionNode,
     OutputNode, evalWorkbook, TRACE_STORE,
 } from "../../src/bindings.ts";
@@ -22,8 +23,8 @@ export class originationsWorkbook {
     @InputNode
     accessor applicationInput = INITIAL_APPLICATION;
 
-    // Use a computed node to instantiate ApplicationTerms
-    @FunctionNode
+    // Use a TermsNode to instantiate ApplicationTerms
+    @TermsNode
     get application() {
         return new ApplicationTerms(this.applicationInput);
     }

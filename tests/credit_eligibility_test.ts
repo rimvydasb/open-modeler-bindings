@@ -16,7 +16,7 @@ describe("Credit Eligibility Demo", () => {
         
         const results = evalWorkbook(CreditEligibilityModel);
 
-        expect(results.application.rows.requestedAmount).toBe(50000);
+        expect(results.applicationInput.rows.requestedAmount).toBe(50000);
         expect(results.appEligibility.eligible).toBe(true);
         
         // Alice is eligible
@@ -38,7 +38,7 @@ describe("Credit Eligibility Demo", () => {
         updatedApp.applicants[1].creditScore = 700;
         updatedApp.applicants[1].annualIncome = 30000;
 
-        mutateInput("application", updatedApp);
+        mutateInput("applicationInput", updatedApp);
 
         const results = evalWorkbook(CreditEligibilityModel);
         
@@ -54,7 +54,7 @@ describe("Credit Eligibility Demo", () => {
         const updatedApp = JSON.parse(JSON.stringify(INITIAL_APPLICATION));
         updatedApp.requestedAmount = 2000000; // Limit is 1M
 
-        mutateInput("application", updatedApp);
+        mutateInput("applicationInput", updatedApp);
 
         const results = evalWorkbook(CreditEligibilityModel);
         expect(results.appEligibility.eligible).toBe(false);
