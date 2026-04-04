@@ -1,0 +1,43 @@
+import type { Application } from "./types.ts";
+
+export class ApplicationTerms {
+    public data!: Application;
+
+    constructor(data?: Application) {
+        if (data) {
+            this.data = data;
+        }
+    }
+
+    get applicantAge(): number {
+        const today = new Date();
+        const birthDate = new Date(this.data.customer.birthday);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    }
+
+    get requestedAmount(): number {
+        return this.data.requestedAmount;
+    }
+
+    get termMonths(): number {
+        return this.data.termMonths;
+    }
+}
+
+export function validateApplication({age, requestedAmount}: {age: number, requestedAmount: number}): {
+    eligible: boolean,
+    reason?: string
+} {
+    if (age < 18) {
+        return { eligible: false, reason: "Applicant must be at least 18 years old." };
+    }
+    if (requestedAmount > 50000) {
+        return { eligible: false, reason: "Requested amount exceeds maximum limit of 50,000." };
+    }
+    return { eligible: true };
+}
