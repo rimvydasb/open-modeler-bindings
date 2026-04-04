@@ -1,7 +1,7 @@
 import { describe, it, expect } from "@jest/globals";
 import { readFileSync } from "node:fs";
 import { OpenModelTSEngine } from "../src/OpenModelTSEngine.ts";
-import { loadFiles } from "../src/node-utils.ts";
+import { loadFiles } from "./test-utils.ts";
 
 const BINDINGS_CONTENT = readFileSync("src/bindings.ts", "utf-8");
 
