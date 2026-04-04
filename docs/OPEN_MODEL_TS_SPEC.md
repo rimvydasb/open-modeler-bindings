@@ -41,6 +41,11 @@ Defines a derived, computed node in the DAG.
   getter is accessed, the engine checks if it is stale. If not, it returns the cached result. If stale, it executes the
   getter body. Any other `@FunctionNode` or `@InputNode` accessed during this execution is automatically registered as a
   dependency.
+* **Mandatory Pattern: Named Inputs & Outputs:** To ensure compatibility with the Open Modeler GUI Editor, all functions
+  invoked within a `@FunctionNode` MUST follow the Named Inputs/Outputs pattern:
+    - **Named Inputs:** The function must accept exactly ONE argument: an object containing all input dependencies as
+      named properties.
+    - **Named Outputs:** The function must return an object containing the results as named properties.
 * **Usage:** Applied to `get` accessors.
 
 ### 2.4 `@ChartNode` and `@OutputNode` (Getter Decorators)

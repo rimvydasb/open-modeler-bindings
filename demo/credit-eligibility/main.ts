@@ -45,13 +45,17 @@ export class CreditEligibilityModel {
 
     @FunctionNode
     get appEligibility() {
-        return validateApplicationEligibility(this.application);
+        return validateApplicationEligibility({
+            app: this.application
+        });
     }
 
     @FunctionNode
     get applicantsEligibility() {
         return {
-            results: this.application.applicants.map(app => validateApplicantEligibility(app))
+            results: this.application.applicants.map(app => validateApplicantEligibility({
+                applicant: app
+            }))
         };
     }
 

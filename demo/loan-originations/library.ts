@@ -3,13 +3,7 @@ import type { Application } from "./types.ts";
 
 @TermsSet
 export class ApplicationTerms {
-    public data!: Application;
-
-    constructor(data?: Application) {
-        if (data) {
-            this.data = data;
-        }
-    }
+    constructor(public readonly data: Application) {}
 
     get applicantAge(): number {
         const today = new Date();

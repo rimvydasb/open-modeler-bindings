@@ -3,7 +3,7 @@ import { Applicant, CreditApplication, EligibilityResult } from "./types.ts";
 
 @TermsSet
 export class ApplicantTerms {
-    constructor(private data: Applicant) {}
+    constructor(public readonly data: Applicant) {}
 
     get age() { return this.data.age; }
     get creditScore() { return this.data.creditScore; }
@@ -13,7 +13,7 @@ export class ApplicantTerms {
 
 @TermsSet
 export class ApplicationTerms {
-    constructor(private data: CreditApplication) {}
+    constructor(public readonly data: CreditApplication) {}
 
     get id() { return this.data.id; }
     get requestedAmount() { return this.data.requestedAmount; }
@@ -27,7 +27,8 @@ export class ApplicationTerms {
 /**
  * Validates general application constraints.
  */
-export function validateApplicationEligibility(app: ApplicationTerms): EligibilityResult {
+export function validateApplicationEligibility(inputs: { app: ApplicationTerms }): EligibilityResult {
+    const { app } = inputs;
     if (app.requestedAmount > 1000000) {
         return { eligible: false, reason: "Requested amount exceeds the maximum limit of 1,000,000." };
     }
@@ -40,7 +41,8 @@ export function validateApplicationEligibility(app: ApplicationTerms): Eligibili
 /**
  * Validates individual applicant constraints.
  */
-export function validateApplicantEligibility(applicant: ApplicantTerms): EligibilityResult {
+export function validateApplicantEligibility(inputs: { applicant: ApplicantTerms }): EligibilityResult {
+    const { applicant } = inputs;
     if (applicant.age < 18) {
         return { eligible: false, reason: `${applicant.fullName} must be at least 18 years old.` };
     }

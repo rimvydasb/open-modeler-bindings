@@ -18,7 +18,8 @@ class SubTerm {
 
 @TermsSet
 class MyTerms {
-    constructor(private val: number) {}
+    constructor(public readonly val: 
+ number) {}
     get double() {
         return { result: this.val * 2 };
     }
