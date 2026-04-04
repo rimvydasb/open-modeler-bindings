@@ -13,6 +13,6 @@
     "isolatedModules": true,
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*", "demo/**/*"],
   "exclude": ["node_modules", "demo/loan-schedule-gui"]
 }

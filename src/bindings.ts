@@ -56,7 +56,8 @@ export function evalWorkbook<T extends Record<string, any>>(
 
         if (descriptor && typeof descriptor.get === 'function') {
             const val = (workbook as any)[key];
-            // If it's an accessor with a setter, it's an @Input. 
+            // If it's an accessor with a setter, it's an @InputNode.
+ 
             // We wrap it in {rows: val} to match framework expectations for input nodes.
             if (typeof descriptor.set === 'function') {
                 results[key] = {rows: val};
@@ -109,9 +110,9 @@ export function Workbook<T extends { new (...args: any[]): {} }>(
 }
 
 /**
- * @Input Accessor Decorator
+ * @InputNode Accessor Decorator
  */
-export function Input<This, Value>(
+export function InputNode<This, Value>(
     target: ClassAccessorDecoratorTarget<This, Value>,
     context: ClassAccessorDecoratorContext<This, Value>
 ) {
@@ -136,9 +137,9 @@ export function Input<This, Value>(
 }
 
 /**
- * @Node Getter Decorator
+ * @FunctionNode Getter Decorator
  */
-export function Node<This, Return>(
+export function FunctionNode<This, Return>(
     target: (this: This) => Return,
     context: ClassGetterDecoratorContext<This, Return>
 ) {
@@ -154,9 +155,9 @@ export function Node<This, Return>(
 }
 
 /**
- * @Chart Getter Decorator
+ * @ChartNode Getter Decorator
  */
-export function Chart<This, Return>(
+export function ChartNode<This, Return>(
     target: (this: This) => Return,
     context: ClassGetterDecoratorContext<This, Return>
 ) {
@@ -171,9 +172,9 @@ export function Chart<This, Return>(
 }
 
 /**
- * @Table Getter Decorator
+ * @OutputNode Getter Decorator
  */
-export function Table<This, Return>(
+export function OutputNode<This, Return>(
     target: (this: This) => Return,
     context: ClassGetterDecoratorContext<This, Return>
 ) {

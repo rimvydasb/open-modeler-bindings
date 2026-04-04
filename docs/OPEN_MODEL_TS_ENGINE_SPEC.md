@@ -207,7 +207,7 @@ sequenceDiagram
 
 ### 1. The Pull Phase (DAG Discovery)
 
-The first execution of any output node (e.g., a Chart or Table) triggers a "Discovery Pull":
+The first execution of any output node (e.g., a ChartNode or OutputNode) triggers a "Discovery Pull":
 
 - **Transparent Tracking**: Uses "Call Stack Interception" via a global `ACTIVE_EVALUATING_NODE` pointer.
 - **DAG Construction**: As nodes are invoked, the framework automatically maps forward edges (Source $\rightarrow$
@@ -296,9 +296,9 @@ their results in the VM trace is redundant and uses unnecessary memory. Instead,
 evaluate their upstream dependencies and push that data directly to the Host Environment by triggering the
 `onNodeDataChanged` event.
 
-| Node Type         | Architectural Role | VM Trace Behavior  | Associated Events                                  | Description                                                                          |
-|-------------------|--------------------|--------------------|----------------------------------------------------|--------------------------------------------------------------------------------------|
-| `inputListNode`   | Source Node        | Cached in Trace    | `onNodeDataChanged`                                | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation. |
-| `node`            | Calculation Node   | Cached in Trace    | `onBeforeNodeExecution`,<br>`onAfterNodeExecution` | Pure business logic computation. Memoizes results to prevent redundant calculation.  |
-| `chartNode`       | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.   |
-| `outputTableNode` | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Table rendering. Pushes data directly to the Host.   |
+| Node Type       | Architectural Role | VM Trace Behavior  | Associated Events                                  | Description                                                                          |
+|-----------------|--------------------|--------------------|----------------------------------------------------|--------------------------------------------------------------------------------------|
+| `inputListNode` | Source Node        | Cached in Trace    | `onNodeDataChanged`                                | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation. |
+| `node`          | Calculation Node   | Cached in Trace    | `onBeforeNodeExecution`,<br>`onAfterNodeExecution` | Pure business logic computation. Memoizes results to prevent redundant calculation.  |
+| `ChartNode`     | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.   |
+| `OutputNode`    | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for various output renderings (scalar, list, table). Pushes data directly to the Host.   |
