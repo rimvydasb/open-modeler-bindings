@@ -23,7 +23,8 @@
     "paths": {
       "@engine": ["../../src/OpenModelTSEngine.ts"],
       "@loan-types": ["../loan-schedule/types.ts"],
-      "@bindings": ["../../src/bindings.ts"]
+      "@open-modeler-bindings/*": ["../../src/bindings/*"],
+      "@bindings": ["../../src/bindings/v1alpha/bindings.ts"]
     }
   },
   "include": ["src"]

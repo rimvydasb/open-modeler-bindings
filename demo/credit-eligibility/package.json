@@ -1,15 +1,16 @@
 {
-    "name": "@open-modeler/loan-originations-demo",
+    "name": "@open-modeler/credit-eligibility-demo",
     "version": "0.1.0",
-    "description": "TypeScript/JavaScript bindings for Open Modeler - Loan Originations Demo",
+    "description": "Credit eligibility demo with collection processing and multi-applicant support",
     "type": "module",
     "license": "MIT",
     "author": "Rimvydas Bingelis",
     "keywords": [
-        "loan",
-        "origination",
-        "demo",
-        "rules"
+        "credit",
+        "eligibility",
+        "collection",
+        "looping",
+        "demo"
     ],
     "main": "./main.ts",
     "exports": {

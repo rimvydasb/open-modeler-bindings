@@ -29,7 +29,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@bindings': path.resolve(__dirname, '../../src/bindings.ts'),
+      '@open-modeler-bindings/v1alpha/bindings': path.resolve(__dirname, '../../src/bindings/v1alpha/bindings.ts'),
       '@loan-schedule': path.resolve(__dirname, '../loan-schedule/library.ts'),
       '@loan-types': path.resolve(__dirname, '../loan-schedule/types.ts'),
       '@engine': path.resolve(__dirname, '../../src/OpenModelTSEngine.ts')

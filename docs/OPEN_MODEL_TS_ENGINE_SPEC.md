@@ -31,6 +31,8 @@ classDiagram
         +mutate~T~(nodeName: string, value: T) void
         +onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
         +onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
+        +onBeforeTermExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
+        +onAfterTermExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
         +onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void) void
         +dispose() void
         -transpile()
@@ -85,8 +87,8 @@ Evaluates a specific workbook.
 - `workbookName`: The name of the workbook thunk to execute.
 - `nodeName`: (Optional) The specific node to pull. If omitted, performs a "Full Pull" on all nodes.
 - **Returns:** A `Record<string, any>` containing results for **all** nodes defined in the workbook.
-  - If `nodeName` is provided, it returns the requested result plus any existing cached results for other nodes.
-  - Nodes that haven't been evaluated yet will be `undefined` in the record.
+    - If `nodeName` is provided, it returns the requested result plus any existing cached results for other nodes.
+    - Nodes that haven't been evaluated yet will be `undefined` in the record.
 
 ### Event Listener Methods (Under Design)
 
@@ -96,9 +98,10 @@ Environment.
 *Architectural Note: These methods represent the state-of-the-art eventing design currently being finalized.*
 
 ####
+
 `onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void`
 
-- **Purpose:** Intercepts the execution flow immediately before a pure calculation `node` evaluates.
+- **Purpose:** Intercepts the execution flow immediately before a pure calculation `@FunctionNode` evaluates.
 - **Payload (`input`):** The fully resolved dependency object (arguments) that will be passed to the node's function.
 - **Use Case:** Profiling execution start times, debugging dependency resolution, or triggering "loading" states in the
   UI for heavy formulas.
@@ -106,15 +109,31 @@ Environment.
 ####
 `onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void`
 
-- **Purpose:** Intercepts the execution flow immediately after a pure calculation `node` evaluates successfully.
+- **Purpose:** Intercepts the execution flow immediately after a pure calculation `@FunctionNode` evaluates
+  successfully.
 - **Payload (`output`):** The resulting named output object produced by the node.
 - **Use Case:** Telemetry, auditing business logic results, or caching intermediate calculation states without binding
   them directly to UI components.
 
+####
+`onBeforeTermExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void`
+
+- **Purpose:** Intercepts the execution flow immediately before a specific term within a `@TermsNode` evaluates.
+- **Payload (`input`):** Usually an empty object, as terms derive their input from the parent container.
+- **Use Case:** Profiling granular term evaluation within complex structures.
+
+####
+`onAfterTermExecution(workbookName: string, nodeName: string, callback: (output: any) => void): void`
+
+- **Purpose:** Intercepts the execution flow immediately after a specific term within a `@TermsNode` evaluates.
+- **Payload (`output`):** The resulting data (scalar or object) produced by the term.
+- **Use Case:** Monitoring the fine-grained data flow of individual terms.
+
+
 #### `onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void): void`
 
-- **Purpose:** The primary bridge for UI reactivity. Triggered when a Sink Node (`chartNode`, `outputTableNode`)
-  receives new upstream data or an `inputListNode` is updated.
+- **Purpose:** The primary bridge for UI reactivity. Triggered when a Sink Node (`@ChartNode`, `@OutputNode`)
+  receives new upstream data or an `@InputNode` is updated.
 - **Payload (`data`):** The raw data ready for visualization or UI consumption.
 - **Use Case:** Triggering state updates in the Host Application (e.g., React `setState`) to re-render charts, tables,
   or update input forms dynamically.
@@ -207,7 +226,7 @@ sequenceDiagram
 
 ### 1. The Pull Phase (DAG Discovery)
 
-The first execution of any output node (e.g., a Chart or Table) triggers a "Discovery Pull":
+The first execution of any output node (e.g., a ChartNode or OutputNode) triggers a "Discovery Pull":
 
 - **Transparent Tracking**: Uses "Call Stack Interception" via a global `ACTIVE_EVALUATING_NODE` pointer.
 - **DAG Construction**: As nodes are invoked, the framework automatically maps forward edges (Source $\rightarrow$
@@ -235,7 +254,8 @@ To ensure compatibility with the flat global scope of the VM, the engine applies
 - Conversion of `const TRACE_STORE` to `var` for global access if necessary.
 - Removal of `export` and `import` statements.
 - Removal of CommonJS artifacts (`require`, `exports`, `Object.defineProperty`).
-- Stripping of module prefixes generated by the TypeScript compiler (e.g., `(0, bindings_ts_1.node)` becomes `node`).
+- Stripping of module prefixes generated by the TypeScript compiler (e.g., `(0, bindings_ts_1.FunctionNode)` becomes
+  `FunctionNode`).
 
 ## Example Usage
 
@@ -246,7 +266,7 @@ const engine = new OpenModelTSEngine();
 
 // Load from memory (Browser-friendly)
 await engine.loadProject({
-    "/main.ts": "import { node } from './bindings'; ...",
+    "/main.ts": "import { FunctionNode } from './bindings'; ...",
     "/bindings.ts": "..."
 });
 
@@ -287,8 +307,9 @@ purity of the domain model while offering a fast bridge to the Host Application.
 
 ### The "Sink Node" Concept
 
-*Architectural Clarification:* `chartNode` and `outputTableNode` act as **Sink Nodes** (or Effect Nodes). Unlike pure
-calculation `node` instances, they do not produce new data meant for downstream consumption within the VM's Directed
+*Architectural Clarification:* `@ChartNode` and `@OutputNode` act as **Sink Nodes** (or Effect Nodes). Unlike pure
+calculation `@FunctionNode` instances, they do not produce new data meant for downstream consumption within the VM's
+Directed
 Acyclic Graph (DAG).
 
 Because inputs are visualized and they do not produce new domain data, **Sink Nodes bypass the `TRACE_STORE`**. Storing
@@ -296,9 +317,10 @@ their results in the VM trace is redundant and uses unnecessary memory. Instead,
 evaluate their upstream dependencies and push that data directly to the Host Environment by triggering the
 `onNodeDataChanged` event.
 
-| Node Type         | Architectural Role | VM Trace Behavior  | Associated Events                                  | Description                                                                          |
-|-------------------|--------------------|--------------------|----------------------------------------------------|--------------------------------------------------------------------------------------|
-| `inputListNode`   | Source Node        | Cached in Trace    | `onNodeDataChanged`                                | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation. |
-| `node`            | Calculation Node   | Cached in Trace    | `onBeforeNodeExecution`,<br>`onAfterNodeExecution` | Pure business logic computation. Memoizes results to prevent redundant calculation.  |
-| `chartNode`       | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.   |
-| `outputTableNode` | Sink / Effect Node | **Bypasses Trace** | `onNodeDataChanged`                                | Evaluates data specifically for Table rendering. Pushes data directly to the Host.   |
+| Node Type       | Architectural Role | VM Trace Behavior     | Associated Events                                  | Description                                                                                                        |
+|-----------------|--------------------|-----------------------|----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `@InputNode`    | Source Node        | Cached in Trace       | `onNodeDataChanged`                                                     | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation.                               |
+| `@FunctionNode` | Calculation Node   | Cached in Trace       | `onBeforeNodeExecution`,<br>`onAfterNodeExecution`                      | Pure business logic computation. Memoizes results to prevent redundant calculation.                                |
+| `@TermsNode`    | Container Node     | Bypasses Trace (Self) | `onBeforeTermExecution`,<br>`onAfterTermExecution` (Inner terms)        | Instantiates a `TermsSet`. Skips self-events; inner terms are cached granularly.                                   |
+| `@ChartNode`    | Sink / Effect Node | **Bypasses Trace**    | `onNodeDataChanged`                                                     | Evaluates data specifically for Chart rendering. Pushes data directly to the Host.                                 |
+| `@OutputNode`   | Sink / Effect Node | **Bypasses Trace**    | `onNodeDataChanged`                                                     | Evaluates data specifically for various output renderings (scalar, list, table). Pushes data directly to the Host. |

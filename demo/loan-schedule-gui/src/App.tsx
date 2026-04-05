@@ -19,7 +19,7 @@ import { LineChart } from '@mui/x-charts';
 
 // Import source code as strings for the engine
 // @ts-ignore
-import bindingsSrc from '../../../src/bindings.ts?raw';
+import bindingsSrc from '../../../src/bindings/v1alpha/bindings.ts?raw';
 // @ts-ignore
 import typesSrc from '../../loan-schedule/types.ts?raw';
 // @ts-ignore
@@ -48,7 +48,7 @@ export default function App() {
             const engine = new OpenModelTSEngine({ debug: true });
             try {
                 await engine.loadProject({
-                    "/src/bindings.ts": bindingsSrc,
+                    "/src/bindings/v1alpha/bindings.ts": bindingsSrc,
                     "/demo/loan-schedule/types.ts": typesSrc,
                     "/demo/loan-schedule/library.ts": librarySrc,
                     "/demo/loan-schedule/main.ts": mainSrc,

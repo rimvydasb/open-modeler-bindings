@@ -1,9 +1,10 @@
 import {
     Workbook,
-    Input,
-    Node,
-    Table, evalWorkbook, TRACE_STORE,
-} from "../../src/bindings.ts";
+    InputNode,
+    TermsNode,
+    FunctionNode,
+    OutputNode, evalWorkbook, TRACE_STORE,
+} from "@open-modeler-bindings/v1alpha/bindings";
 import { ApplicationTerms, validateApplication } from "./library.ts";
 import type { Application } from "./types.ts";
 
@@ -19,17 +20,17 @@ export const INITIAL_APPLICATION: Application = {
 
 @Workbook
 export class originationsWorkbook {
-    @Input
+    @InputNode
     accessor applicationInput = INITIAL_APPLICATION;
 
-    // Use a computed node to instantiate ApplicationTerms
-    @Node
+    // Use a TermsNode to instantiate ApplicationTerms
+    @TermsNode
     get application() {
         return new ApplicationTerms(this.applicationInput);
     }
 
     // A standard node that uses the extended application
-    @Node
+    @FunctionNode
     get eligibility() {
         return validateApplication({
             age: this.application.applicantAge,
@@ -37,7 +38,7 @@ export class originationsWorkbook {
         });
     }
 
-    @Table
+    @OutputNode
     get renderEligibilityResult() {
         return [this.eligibility];
     }

@@ -1,14 +1,15 @@
 import { describe, it, expect } from "@jest/globals";
 import { 
     Workbook,
-    Input,
-    Node,
+    InputNode,
+    FunctionNode,
+    OutputNode,
     mutateInput,
     clearTrace,
     getFromTrace,
     validateWorkbook,
     evalWorkbook
-} from "../src/bindings.ts";
+} from "@open-modeler-bindings/v1alpha/bindings";
 
 describe("Framework Reactivity (bindings.ts)", () => {
 
@@ -17,8 +18,8 @@ describe("Framework Reactivity (bindings.ts)", () => {
         
         @Workbook
         class TestWorkbook {
-            @Node get nodeA() { return { result: 1 }; }
-            @Node get nodeB() { return { result: 2 }; }
+            @FunctionNode get nodeA() { return { result: 1 }; }
+            @FunctionNode get nodeB() { return { result: 2 }; }
         }
 
         const results = evalWorkbook(TestWorkbook);
@@ -36,11 +37,11 @@ describe("Framework Reactivity (bindings.ts)", () => {
 
         @Workbook
         class TestWorkbook {
-            @Node get nodeA() {
+            @FunctionNode get nodeA() {
                 callCountA++;
                 return { result: 'A' };
             }
-            @Node get nodeB() {
+            @FunctionNode get nodeB() {
                 callCountB++;
                 return { result: 'B' };
             }
@@ -72,12 +73,12 @@ describe("Framework Reactivity (bindings.ts)", () => {
 
         @Workbook
         class TestWorkbook {
-            @Input accessor input = { value: 10 };
-            @Node get nodeA() {
+            @InputNode accessor input = { value: 10 };
+            @FunctionNode get nodeA() {
                 countA++;
                 return { result: this.input.value + 1 };
             }
-            @Node get nodeB() {
+            @FunctionNode get nodeB() {
                 countB++;
                 return { result: 100 };
             }
@@ -107,7 +108,7 @@ describe("Framework Reactivity (bindings.ts)", () => {
         
         @Workbook
         class TestWorkbook {
-            @Node get nodeA() {
+            @FunctionNode get nodeA() {
                 callCount++;
                 return { result: 42 };
             }
@@ -127,8 +128,8 @@ describe("Framework Reactivity (bindings.ts)", () => {
 
         @Workbook
         class TestWorkbook {
-            @Input accessor input = { val: 1 };
-            @Node get calc() {
+            @InputNode accessor input = { val: 1 };
+            @FunctionNode get calc() {
                 callCount++;
                 return { result: this.input.val + 10 };
             }
@@ -158,13 +159,13 @@ describe("Framework Reactivity (bindings.ts)", () => {
 
         @Workbook
         class TestWorkbook {
-            @Input accessor inputA = { val: 1 };
-            @Input accessor inputB = { val: 1 };
-            @Node get calcA() {
+            @InputNode accessor inputA = { val: 1 };
+            @InputNode accessor inputB = { val: 1 };
+            @FunctionNode get calcA() {
                 calcACount++;
                 return { result: this.inputA.val + 1 };
             }
-            @Node get calcB() {
+            @FunctionNode get calcB() {
                 calcBCount++;
                 return { result: this.inputB.val + 1 };
             }
@@ -189,8 +190,8 @@ describe("Framework Reactivity (bindings.ts)", () => {
         
         @Workbook
         class CircularWorkbook {
-            @Node get nodeA(): any { return { result: (this.nodeB.result || 0) + 1 }; }
-            @Node get nodeB(): any { return { result: (this.nodeA.result || 0) + 1 }; }
+            @FunctionNode get nodeA(): any { return { result: (this.nodeB.result || 0) + 1 }; }
+            @FunctionNode get nodeB(): any { return { result: (this.nodeA.result || 0) + 1 }; }
         }
 
         expect(
@@ -203,7 +204,7 @@ describe("Framework Reactivity (bindings.ts)", () => {
         
         @Workbook
         class InvalidWorkbook {
-            @Node get badNode(): any {
+            @FunctionNode get badNode(): any {
                 return 42; // Invalid: scalar output
             }
         }

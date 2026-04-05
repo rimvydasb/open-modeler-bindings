@@ -1,10 +1,10 @@
 import {
     Workbook,
-    Input,
-    Node,
-    Chart,
-    Table, evalWorkbook
-} from "../../src/bindings.ts";
+    InputNode,
+    FunctionNode,
+    ChartNode,
+    OutputNode, evalWorkbook
+} from "@open-modeler-bindings/v1alpha/bindings";
 import { calculateMonthlyPayment, generateLoanSchedule } from "./library.ts";
 import type { LoanInputs } from "./types.ts";
 
@@ -17,10 +17,10 @@ export const INPUT_VARIABLES: LoanInputs = {
 
 @Workbook
 export class myWorkbook {
-    @Input
+    @InputNode
     accessor inputVariables = INPUT_VARIABLES;
 
-    @Node
+    @FunctionNode
     get calculateMonthlyPayment() {
         return calculateMonthlyPayment({
             principal: this.inputVariables.loanAmount,
@@ -29,7 +29,7 @@ export class myWorkbook {
         });
     }
 
-    @Node
+    @FunctionNode
     get generateLoanSchedule() {
         return generateLoanSchedule({
             loanAmount: this.inputVariables.loanAmount,
@@ -40,12 +40,12 @@ export class myWorkbook {
         });
     }
 
-    @Chart
+    @ChartNode
     get renderLoanBalanceChart() {
         return this.generateLoanSchedule.loanSchedule;
     }
 
-    @Table
+    @OutputNode
     get renderLoanScheduleTable() {
         return this.generateLoanSchedule.loanSchedule;
     }

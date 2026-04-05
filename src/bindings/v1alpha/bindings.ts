@@ -31,9 +31,20 @@ let ACTIVE_EVALUATING_NODE: string | null = null;
 const EVALUATION_STACK: string[] = [];
 
 /**
+ * Supported framework events for host communication.
+ */
+export enum FrameworkEvent {
+    BEFORE_NODE_EXECUTION = 'beforeNodeExecution',
+    AFTER_NODE_EXECUTION = 'afterNodeExecution',
+    BEFORE_TERM_EXECUTION = 'beforeTermExecution',
+    AFTER_TERM_EXECUTION = 'afterTermExecution',
+    NODE_DATA_CHANGED = 'nodeDataChanged',
+}
+
+/**
  * Internal event emitter to communicate with the Host Environment.
  */
-function emitEvent(eventType: string, payload: any): void {
+function emitEvent(eventType: FrameworkEvent, payload: any): void {
     if (typeof (globalThis as any).__emitEvent === 'function') {
         (globalThis as any).__emitEvent(eventType, payload);
     }
@@ -56,7 +67,8 @@ export function evalWorkbook<T extends Record<string, any>>(
 
         if (descriptor && typeof descriptor.get === 'function') {
             const val = (workbook as any)[key];
-            // If it's an accessor with a setter, it's an @Input. 
+            // If it's an accessor with a setter, it's an @InputNode.
+
             // We wrap it in {rows: val} to match framework expectations for input nodes.
             if (typeof descriptor.set === 'function') {
                 results[key] = {rows: val};
@@ -99,6 +111,11 @@ export function evalWorkbook<T extends Record<string, any>>(
 }
 
 /**
+ * Symbol to mark a class as a TermsSet.
+ */
+const IS_TERMS_SET = Symbol.for('__isTermsSet');
+
+/**
  * @Workbook Class Decorator
  */
 export function Workbook<T extends { new (...args: any[]): {} }>(
@@ -109,9 +126,20 @@ export function Workbook<T extends { new (...args: any[]): {} }>(
 }
 
 /**
- * @Input Accessor Decorator
+ * @TermsSet Class Decorator
  */
-export function Input<This, Value>(
+export function TermsSet<T extends { new (...args: any[]): {} }>(
+    target: T,
+    _context: ClassDecoratorContext<T>
+) {
+    (target as any)[IS_TERMS_SET] = true;
+    return target;
+}
+
+/**
+ * @InputNode Accessor Decorator
+ */
+export function InputNode<This, Value>(
     target: ClassAccessorDecoratorTarget<This, Value>,
     context: ClassAccessorDecoratorContext<This, Value>
 ) {
@@ -121,7 +149,7 @@ export function Input<This, Value>(
         get(this: This): Value {
             return executeWithTracking(nodeName, () => {
                 const value = target.get.call(this);
-                emitEvent('nodeDataChanged', {nodeName, data: value});
+                emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data: value});
                 return {rows: value};
             }).rows;
         },
@@ -136,27 +164,46 @@ export function Input<This, Value>(
 }
 
 /**
- * @Node Getter Decorator
+ * @FunctionNode Getter Decorator
  */
-export function Node<This, Return>(
+export function FunctionNode<This, Return>(
     target: (this: This) => Return,
     context: ClassGetterDecoratorContext<This, Return>
 ) {
     const nodeName = String(context.name);
     return function (this: This): Return {
         return executeWithTracking(nodeName, () => {
-            emitEvent('beforeNodeExecution', {nodeName, input: TRACE_STORE[nodeName]?.input || {}});
+            emitEvent(FrameworkEvent.BEFORE_NODE_EXECUTION, {nodeName, input: TRACE_STORE[nodeName]?.input || {}});
             const result = target.call(this);
-            emitEvent('afterNodeExecution', {nodeName, output: result});
+            emitEvent(FrameworkEvent.AFTER_NODE_EXECUTION, {nodeName, output: result});
             return result;
         });
     };
 }
 
 /**
- * @Chart Getter Decorator
+ * @TermsNode Getter Decorator
  */
-export function Chart<This, Return>(
+export function TermsNode<This, Return>(
+    target: (this: This) => Return,
+    context: ClassGetterDecoratorContext<This, Return>
+) {
+    const nodeName = String(context.name);
+    return function (this: This): Return {
+        return executeWithTracking(nodeName, () => {
+            const instance = target.call(this) as any;
+            if (instance && typeof instance === 'object' && instance.constructor[IS_TERMS_SET]) {
+                return createTermsProxy(instance, nodeName);
+            }
+            return instance;
+        }, {silent: true});
+    };
+}
+
+/**
+ * @ChartNode Getter Decorator
+ */
+export function ChartNode<This, Return>(
     target: (this: This) => Return,
     context: ClassGetterDecoratorContext<This, Return>
 ) {
@@ -164,16 +211,16 @@ export function Chart<This, Return>(
     return function (this: This): Return {
         return executeWithTracking(nodeName, () => {
             const data = target.call(this);
-            emitEvent('nodeDataChanged', {nodeName, data});
+            emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data});
             return data;
         }, {skipCache: true});
     };
 }
 
 /**
- * @Table Getter Decorator
+ * @OutputNode Getter Decorator
  */
-export function Table<This, Return>(
+export function OutputNode<This, Return>(
     target: (this: This) => Return,
     context: ClassGetterDecoratorContext<This, Return>
 ) {
@@ -181,10 +228,62 @@ export function Table<This, Return>(
     return function (this: This): Return {
         return executeWithTracking(nodeName, () => {
             const data = target.call(this);
-            emitEvent('nodeDataChanged', {nodeName, data});
+            emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data});
             return data;
         }, {skipCache: true});
     };
+}
+
+/**
+ * Wraps a TermsSet instance in a Proxy to track getter calls.
+ */
+function createTermsProxy(target: any, parentNodeName: string, parentDependency?: string) {
+    return new Proxy(target, {
+        get(obj, prop, receiver) {
+            const propName = String(prop);
+            const descriptor = getGetterDescriptor(obj, propName);
+
+            if (descriptor && typeof descriptor.get === 'function') {
+                const termKey = `${parentNodeName}.${propName}`;
+                return executeWithTracking(termKey, () => {
+                    // Register dependency on the parent container node
+                    registerDependency(parentNodeName);
+                    // If it belongs to an array/list, register dependency on that collection node
+                    if (parentDependency) registerDependency(parentDependency);
+
+                    emitEvent(FrameworkEvent.BEFORE_TERM_EXECUTION, { nodeName: termKey, input: {} });
+                    const result = descriptor.get!.call(receiver);
+                    emitEvent(FrameworkEvent.AFTER_TERM_EXECUTION, { nodeName: termKey, output: result });
+
+                    // Recursive Proxy Wrapping for nested TermsSets
+                    if (result && typeof result === 'object' && result !== null) {
+                        if (Array.isArray(result)) {
+                            return result.map((item, idx) => {
+                                if (item && typeof item === 'object' && item.constructor[IS_TERMS_SET]) {
+                                    return createTermsProxy(item, `${termKey}[${idx}]`, termKey);
+                                }
+                                return item;
+                            });
+                        } else if (result.constructor[IS_TERMS_SET]) {
+                            return createTermsProxy(result, termKey);
+                        }
+                    }
+                    return result;
+                }, {silent: true});
+            }
+            return Reflect.get(obj, prop, receiver);
+        }
+    });
+}
+
+function getGetterDescriptor(obj: any, prop: string): PropertyDescriptor | undefined {
+    let proto = Object.getPrototypeOf(obj);
+    while (proto && proto !== Object.prototype) {
+        const desc = Object.getOwnPropertyDescriptor(proto, prop);
+        if (desc) return desc;
+        proto = Object.getPrototypeOf(proto);
+    }
+    return undefined;
 }
 
 /**
@@ -222,7 +321,7 @@ function registerDependency(sourceNode: string): void {
 function executeWithTracking<T>(
     nodeName: string,
     evaluate: () => T,
-    options: { skipCache?: boolean } = {}
+    options: { skipCache?: boolean; silent?: boolean } = {}
 ): T {
     if (EVALUATION_STACK.includes(nodeName)) {
         throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${nodeName}`);
@@ -247,7 +346,7 @@ function executeWithTracking<T>(
         const result = evaluate();
 
         // Enforce named outputs (objects)
-        if (typeof result !== 'object' || result === null) {
+        if (!options.silent && (typeof result !== 'object' || result === null)) {
             throw new Error(`Node "${nodeName}" must return a named output (object), but got ${typeof result}.`);
         }
 
@@ -313,7 +412,7 @@ export function mutateInput<T>(nodeName: string, newData: T): void {
     TRACE_STORE[nodeName].output = {rows: newData};
     TRACE_STORE[nodeName].stale = false;
 
-    emitEvent('nodeDataChanged', {nodeName, data: newData});
+    emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data: newData});
 
     invalidateDownstream(nodeName);
 }

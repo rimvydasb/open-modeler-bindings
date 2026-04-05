@@ -20,7 +20,7 @@ transparent updates to complex dependency graphs.
 - **`OpenModelTSEngine` (`src/OpenModelTSEngine.ts`):** The core orchestrator. It handles the full lifecycle: loading TS
   files into a virtual project, transpiling them to sanitized JS, booting the QuickJS VM, and executing functions or
   mutations.
-- **Reactivity Framework (`src/bindings.ts`):** Implements a Directed Acyclic Graph (DAG) for reactive calculations.
+- **Reactivity Framework (`src/bindings/v1alpha/bindings.ts`):** Implements a Directed Acyclic Graph (DAG) for reactive calculations.
     - **Discovery Pulls:** Automatically discovers dependencies during the first execution via `ACTIVE_EVALUATING_NODE`
       tracking.
     - **Invalidation Pushes:** When an input is mutated via `mutateInput`, it pushes invalidation signals downstream to
@@ -40,7 +40,7 @@ transparent updates to complex dependency graphs.
 ### Project Configuration
 
 - **Node.js Version:** Requires `>=24.0.0` (specified in `package.json`).
-- **Entry Point:** `src/OpenModelTSEngine.ts` for the engine; `src/bindings.ts` for the framework.
+- **Entry Point:** `src/OpenModelTSEngine.ts` for the engine; `src/bindings/v1alpha/bindings.ts` for the framework.
 
 ## Development Conventions
 
@@ -51,12 +51,11 @@ into the code that runs inside the VM. All source files must be loaded into the 
 
 ### 2. Reactivity Logic
 
-When defining domain models (e.g., in `demo/loan-schedule/`), use the `node`, `inputListNode`, and `evalWorkbook`
-helpers from `bindings.ts`. This ensures that the engine can correctly track and invalidate dependencies.
+When defining domain models (e.g., in `demo/loan-schedule/`), use the decorators from `@open-modeler-bindings/v1alpha/bindings`. This ensures that the engine can correctly track and invalidate dependencies.
 
 ### 3. Testing Standards
 
-- **Framework Testing:** Always test against the actual `src/bindings.ts` logic.
+- **Framework Testing:** Always test against the actual `src/bindings/v1alpha/bindings.ts` logic.
 - **Engine Testing:** Use `loadProject` with both virtual (in-memory strings) and physical (using `readFileSync`) file
   inputs to verify robustness.
 - **Sanitization Verification:** If adding new TS features, verify that the `sanitize` regex in `OpenModelTSEngine.ts`
