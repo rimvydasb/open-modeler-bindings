@@ -5,9 +5,9 @@ export default {
     extensionsToTreatAsEsm: ['.ts'],
     moduleNameMapper: {
         '^(\\.{1,2}/.*)\\.js$': '$1',
-        '^@open-modeler-bindings/(.*)$': '<rootDir>/node_modules/open-modeler-ts-core/src/bindings/$1',
+        '^@open-modeler-bindings/(.*)$': '<rootDir>/src/bindings/$1',
     },
-    testMatch: ['**/tests/**/*_test.ts'],
+    testMatch: ['**/tests/**/*_test.ts', '**/__tests__/**/*_test.ts'],
     transformIgnorePatterns: ['node_modules/(?!open-modeler-ts-core)'],
     transform: {
         '^.+\\.tsx?$': [

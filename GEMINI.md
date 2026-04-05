@@ -17,7 +17,7 @@ transparent updates to complex dependency graphs.
 
 ### Architecture & Key Components
 
-- **`OpenModelTSEngine` (`src/OpenModelTSEngine.ts`):** The core orchestrator. It handles the full lifecycle: loading TS
+- **`OpenModelTSEngine` (`src/engine/OpenModelTSEngine.ts`):** The core orchestrator. It handles the full lifecycle: loading TS
   files into a virtual project, transpiling them to sanitized JS, booting the QuickJS VM, and executing functions or
   mutations.
 - **Reactivity Framework (`src/bindings/v1alpha/bindings.ts`):** Implements a Directed Acyclic Graph (DAG) for reactive calculations.
@@ -33,14 +33,14 @@ transparent updates to complex dependency graphs.
 
 ### Essential Commands
 
-- **Run Tests:** `npm test` (Runs all `tests/*.ts` using the native Node.js test runner and `tsx`).
+- **Run Tests:** `npm test` (Runs all `tests/*.ts` and `**/__tests__/*.ts` using Jest).
 - **Build Project:** `npm run build` (Compiles TypeScript using `tsc`).
 - **Dependency Management:** `npx ncu -u` (Updates dependencies to the latest stable versions).
 
 ### Project Configuration
 
 - **Node.js Version:** Requires `>=24.0.0` (specified in `package.json`).
-- **Entry Point:** `src/OpenModelTSEngine.ts` for the engine; `src/bindings/v1alpha/bindings.ts` for the framework.
+- **Entry Point:** `src/engine/OpenModelTSEngine.ts` for the engine; `src/bindings/v1alpha/bindings.ts` for the framework.
 
 ## Development Conventions
 
@@ -58,7 +58,7 @@ When defining domain models (e.g., in `demo/loan-schedule/`), use the decorators
 - **Framework Testing:** Always test against the actual `src/bindings/v1alpha/bindings.ts` logic.
 - **Engine Testing:** Use `loadProject` with both virtual (in-memory strings) and physical (using `readFileSync`) file
   inputs to verify robustness.
-- **Sanitization Verification:** If adding new TS features, verify that the `sanitize` regex in `OpenModelTSEngine.ts`
+- **Sanitization Verification:** If adding new TS features, verify that the `sanitize` regex in `src/engine/OpenModelTSEngine.ts`
   correctly handles the emitted JS.
 
 ### 4. Code Standards

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "@jest/globals";
-import { OpenModelTSEngine } from "../src/OpenModelTSEngine.ts";
+import { OpenModelTSEngine } from "../OpenModelTSEngine.ts";
 
 describe("OpenModelTSEngine", () => {
 

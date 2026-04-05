@@ -32,7 +32,7 @@ export default defineConfig({
       '@open-modeler-bindings/v1alpha/bindings': path.resolve(__dirname, '../../src/bindings/v1alpha/bindings.ts'),
       '@loan-schedule': path.resolve(__dirname, '../loan-schedule/library.ts'),
       '@loan-types': path.resolve(__dirname, '../loan-schedule/types.ts'),
-      '@engine': path.resolve(__dirname, '../../src/OpenModelTSEngine.ts')
+      '@engine': path.resolve(__dirname, '../../src/engine/OpenModelTSEngine.ts')
     }
   }
 })

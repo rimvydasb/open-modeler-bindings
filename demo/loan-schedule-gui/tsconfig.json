@@ -21,7 +21,7 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@engine": ["../../src/OpenModelTSEngine.ts"],
+      "@engine": ["../../src/engine/OpenModelTSEngine.ts"],
       "@loan-types": ["../loan-schedule/types.ts"],
       "@open-modeler-bindings/*": ["../../src/bindings/*"],
       "@bindings": ["../../src/bindings/v1alpha/bindings.ts"]
