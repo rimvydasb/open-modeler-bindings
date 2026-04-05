@@ -12,6 +12,9 @@
   "engines": {
     "node": ">=24.0.0"
   },
+  "exports": {
+    "./bindings": "./src/bindings/v1alpha/bindings.ts"
+  },
   "dependencies": {
     "quickjs-emscripten": "^0.32.0",
     "ts-morph": "^27.0.2"
