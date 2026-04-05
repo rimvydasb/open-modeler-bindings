@@ -28,6 +28,9 @@
     "engines": {
         "node": ">=24.0.0"
     },
+    "dependencies": {
+        "@open-modeler-bindings/v1alpha": "github:rimvydasb/open-modeler-ts-core"
+    },
     "devDependencies": {
         "tsx": "^4.21.0",
         "typescript": "^6.0.2"
