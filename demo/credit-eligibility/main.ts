@@ -6,7 +6,7 @@ import {
     OutputNode,
     evalWorkbook
 } from "@open-modeler-bindings/v1alpha/bindings";
-import { CreditApplication, EligibilityResult } from "./types.ts";
+import { CreditApplication } from "./types.ts";
 import { ApplicationTerms, validateApplicationEligibility, validateApplicantEligibility } from "./library.ts";
 
 export const INITIAL_APPLICATION: CreditApplication = {
