@@ -65,7 +65,7 @@ export class OpenModelTSEngine {
                 alwaysStrict: false,
                 baseUrl: "/",
                 paths: {
-                    "@open-modeler-bindings/*": ["/src/bindings/*"]
+                    "@open-modeler-bindings/*": ["/src/bindings/*.ts"]
                 }
             },
             useInMemoryFileSystem: true
