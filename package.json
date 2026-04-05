@@ -1,7 +1,7 @@
 {
-  "name": "open-modeler-bindings",
+  "name": "open-modeler-ts-core",
   "version": "0.1.0",
-  "description": "TypeScript execution engine for Open Modeler",
+  "description": "Open Modeler TypeScript Core components",
   "main": "dist/main.js",
   "type": "module",
   "scripts": {
