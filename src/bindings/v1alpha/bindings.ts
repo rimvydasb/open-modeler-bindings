@@ -68,7 +68,7 @@ export function evalWorkbook<T extends Record<string, any>>(
         if (descriptor && typeof descriptor.get === 'function') {
             const val = (workbook as any)[key];
             // If it's an accessor with a setter, it's an @InputNode.
- 
+
             // We wrap it in {rows: val} to match framework expectations for input nodes.
             if (typeof descriptor.set === 'function') {
                 results[key] = {rows: val};
@@ -242,7 +242,7 @@ function createTermsProxy(target: any, parentNodeName: string, parentDependency?
         get(obj, prop, receiver) {
             const propName = String(prop);
             const descriptor = getGetterDescriptor(obj, propName);
-            
+
             if (descriptor && typeof descriptor.get === 'function') {
                 const termKey = `${parentNodeName}.${propName}`;
                 return executeWithTracking(termKey, () => {
@@ -254,7 +254,7 @@ function createTermsProxy(target: any, parentNodeName: string, parentDependency?
                     emitEvent(FrameworkEvent.BEFORE_TERM_EXECUTION, { nodeName: termKey, input: {} });
                     const result = descriptor.get!.call(receiver);
                     emitEvent(FrameworkEvent.AFTER_TERM_EXECUTION, { nodeName: termKey, output: result });
-                    
+
                     // Recursive Proxy Wrapping for nested TermsSets
                     if (result && typeof result === 'object' && result !== null) {
                         if (Array.isArray(result)) {

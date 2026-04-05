@@ -62,7 +62,11 @@ export class OpenModelTSEngine {
                 target: 7, // ESNext
                 module: 0, // None
                 lib: ["esnext"],
-                alwaysStrict: false
+                alwaysStrict: false,
+                baseUrl: "/",
+                paths: {
+                    "@open-modeler-bindings/*": ["/src/bindings/*"]
+                }
             },
             useInMemoryFileSystem: true
         });

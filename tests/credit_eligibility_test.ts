@@ -3,7 +3,7 @@ import {
     evalWorkbook,
     clearTrace,
     mutateInput
-} from "../src/bindings.ts";
+} from "@open-modeler-bindings/v1alpha/bindings";
 import { 
     CreditEligibilityModel,
     INITIAL_APPLICATION

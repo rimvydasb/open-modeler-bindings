@@ -11,6 +11,11 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "isolatedModules": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@open-modeler-bindings/*": ["./src/bindings/*.ts"]
+    },
     "types": ["node", "jest"]
   },
   "include": ["src/**/*", "tests/**/*", "demo/**/*"],

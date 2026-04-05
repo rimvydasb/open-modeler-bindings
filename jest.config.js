@@ -5,6 +5,7 @@ export default {
     extensionsToTreatAsEsm: ['.ts'],
     moduleNameMapper: {
         '^(\\.{1,2}/.*)\\.js$': '$1',
+        '^@open-modeler-bindings/(.*)$': '<rootDir>/src/bindings/$1',
     },
     testMatch: ['**/tests/**/*_test.ts'],
     transform: {

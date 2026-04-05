@@ -8,7 +8,7 @@ import {
     getFromTrace, 
     mutateInput,
     evalWorkbook
-} from "../src/bindings.ts";
+} from "@open-modeler-bindings/v1alpha/bindings";
 
 describe("Loan Schedule Demo", () => {
 

@@ -3,12 +3,13 @@ import {
     Workbook,
     InputNode,
     FunctionNode,
+    OutputNode,
     mutateInput,
     clearTrace,
     getFromTrace,
     validateWorkbook,
     evalWorkbook
-} from "../src/bindings.ts";
+} from "@open-modeler-bindings/v1alpha/bindings";
 
 describe("Framework Reactivity (bindings.ts)", () => {
 

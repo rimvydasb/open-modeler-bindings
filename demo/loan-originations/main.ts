@@ -4,7 +4,7 @@ import {
     TermsNode,
     FunctionNode,
     OutputNode, evalWorkbook, TRACE_STORE,
-} from "../../src/bindings.ts";
+} from "@open-modeler-bindings/v1alpha/bindings";
 import { ApplicationTerms, validateApplication } from "./library.ts";
 import type { Application } from "./types.ts";
 

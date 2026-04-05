@@ -86,7 +86,7 @@ OpenModelTS utilizes class getters and decorators. Dependencies are auto-discove
 access.
 
 ```typescript
-import {Workbook, InputNode, FunctionNode, ChartNode, OutputNode, TermsNode, TermsSet} from "@open-modeler/bindings";
+import {Workbook, InputNode, FunctionNode, ChartNode, OutputNode, TermsNode, TermsSet} from "@open-modeler-bindings/v1alpha/bindings";
 import {calculateMonthlyPayment, generateLoanSchedule} from "./library";
 import {INPUT_VARIABLES} from "./types";
 
