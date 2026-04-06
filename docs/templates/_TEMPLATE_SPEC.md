@@ -46,6 +46,17 @@ sequenceDiagram
     ComponentB ->> Service: action()
 ```
 
+_For complex flows, you can use high level Flow diagram and list phases of the flow with brief descriptions. If Sequence
+diagram is used, then you can split in phases with `Note over` and list them as well._
+
+1. **_Phase Name_** 
+
+_Brief description of what happens in this phase._
+
+2. **_Phase Name_**
+
+_Brief description of what happens in this phase._
+
 ## Components
 
 ### _Component Name A_
