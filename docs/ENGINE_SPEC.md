@@ -30,7 +30,7 @@ classDiagram
 
     class OpenModelTSEngine {
         +constructor(options: EngineOptions)
-        +loadProject(project: ATSProjectInstance | Record~string, string~) Promise~void~
+        +loadProject(project: ATSProjectInstance) Promise~void~
         +boot() Promise~void~
         +execute~T~(functionName: string, ...args: any[]) T
         +executeWorkbook(workbookName: string, nodeName?: string) Record~string, any~
@@ -122,4 +122,5 @@ for UI components.
 - **`onBeforeNodeExecution(workbook, node, callback)`**: Triggered before a node calculates.
 - **`onAfterNodeExecution(workbook, node, callback)`**: Triggered after a node calculates.
 - **`onBeforeTermExecution(workbook, node, callback)`**: Triggered before a term in a `TermsSet` calculates.
-- **`onAfterTermExecution(workbook, node, callback)`**: Triggered after a term in a `TermsSet` calculates.
+- **`onAfterTermExecution(workbook, node, callback)`**: Triggered after a term in a `TermsSet` calculates. msSet`
+  calculates.

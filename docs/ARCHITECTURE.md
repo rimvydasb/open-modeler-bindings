@@ -59,10 +59,9 @@ sequenceDiagram
     participant Engine as OpenModelTSEngine
     participant VM as QuickJS VM / Framework
     Note over Host, VM: Initial Setup
-    Host ->> Engine: loadProject(sources)
-    Engine ->> Engine: Transpile & Sanitize
+    Host ->> Engine: loadProject(TSProjectInstance)
+    Engine ->> VM: Evaluate Bundle (pre-sanitized)
     Host ->> Engine: boot()
-    Engine ->> VM: Evaluate Bundle
     Note over Host, VM: Execution (Pull)
     Host ->> Engine: executeWorkbook("MyWorkbook")
     Engine ->> VM: callVm("evalWorkbook")

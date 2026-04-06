@@ -114,3 +114,29 @@ follows the same manifest-driven logic as `FileTSProject` to populate the VFS.
 - **`files`**: An array of glob patterns or file paths. Only files matching these patterns are added to the internal
   `ts-morph` project.
 - **`exports`**: Used to identify the primary entry points for the model execution.
+
+---
+
+## Implementation Plan
+
+- [ ] **Phase 1: Foundation & Abstraction**
+    - [ ] Implement `ATSProjectInstance` base class with `ts-morph` VFS initialization.
+    - [ ] Port the shared `sanitize()` logic from `OpenModelTSEngine` into the base class.
+    - [ ] Implement the `emitJs()` pipeline to bundle and transform VFS contents.
+- [ ] **Phase 2: Project Instance Strategies**
+    - [ ] **Inline Strategy:** Implement `InlineTSProject` to handle `Record<string, string>` memory maps.
+    - [ ] **Local Strategy:** Implement `FileTSProject` with hierarchical resolution (Directory -> package.json ->
+          Files).
+    - [ ] **Archive Strategy:** Add `.tar.gz` support to `FileTSProject` using in-memory decompression.
+    - [ ] **Remote Strategy:** Implement `WebTarTSProject` to fetch and unpack remote releases via URL.
+- [ ] **Phase 3: Engine Integration**
+    - [ ] Refactor `OpenModelTSEngine.loadProject` to exclusively accept `ATSProjectInstance`.
+    - [ ] Remove internal transpilation and sanitization logic from the Engine, delegating it entirely to the project
+          instance.
+- [ ] **Phase 4: Validation & Testing**
+    - [ ] Write Jest unit tests for `InlineTSProject` to verify VFS population.
+    - [ ] Write Jest integration tests for `FileTSProject` using mock file systems to verify `package.json` globbing.
+    - [ ] Write Jest tests for `WebTarTSProject` with mocked network responses.
+    - [ ] **Archive Validation:** Use a `.tar.gz` archive of the existing `demo/loan-schedule` project to verify
+          decompression and manifest-driven loading in both local and web strategies.
+    - [ ] Verify sanitization regex coverage against all emitted TypeScript patterns.
