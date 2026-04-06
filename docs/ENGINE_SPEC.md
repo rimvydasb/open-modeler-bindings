@@ -30,7 +30,7 @@ classDiagram
 
     class OpenModelTSEngine {
         +constructor(options: EngineOptions)
-        +loadProject(project: ATSProject | Record~string, string~) Promise~void~
+        +loadProject(project: ATSProjectInstance | Record~string, string~) Promise~void~
         +boot() Promise~void~
         +execute~T~(functionName: string, ...args: any[]) T
         +executeWorkbook(workbookName: string, nodeName?: string) Record~string, any~
@@ -104,8 +104,8 @@ for UI components.
 ### Initialization & Lifecycle
 
 - **`constructor(options?: EngineOptions)`**: Initializes the engine. `debug` option enables verbose logging.
-- **`loadProject(project: ATSProject | Record<string, string>)`**: Prepares the VM bundle. Consumes pre-transpiled code
-  from `ATSProject` or sources from a raw file map.
+- **`loadProject(project: ATSProjectInstance)`**: Prepares the VM bundle. Consumes pre-transpiled code from
+  `ATSProjectInstance` or sources from a raw file map.
 - **`boot()`**: Bootstraps the QuickJS environment and evaluates the project code.
 - **`dispose()`**: Cleans up VM resources and handles.
 

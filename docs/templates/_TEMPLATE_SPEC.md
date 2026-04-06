@@ -1,5 +1,7 @@
 # _Module N_ Specification
 
+_Provide a technical name such as: [ts-project](../../src/ts-project)_
+
 ## Overview
 
 _Brief high-level description of the module's responsibility and its role in the system._

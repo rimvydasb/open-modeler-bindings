@@ -1,19 +1,19 @@
-# TypeScript Project Abstraction Specification
+# TypeScript Project Instance Specification
 
 ## Overview
 
-The `TSProject` module provides a unified abstraction for managing, transpiling, and bundling TypeScript source files.
+The `ts-project` module provides a unified abstraction for managing, transpiling, and bundling TypeScript source files.
 It wraps the `ts-morph` engine to provide a consistent interface for different project sourcing strategies (e.g.,
 in-memory strings, local file systems, or remote archives) and produces a sanitized JavaScript bundle required by the
 `OpenModelTSEngine`.
 
 ## Main Concepts
 
-- **Abstract Project (`ATSProject`):** The core base class that manages the internal `ts-morph` project, compiler
-  options, and the emit/sanitization pipeline.
+- **Abstract Project Instance (`ATSProjectInstance`):** The core base class that manages the internal `ts-morph`
+  project, compiler options, and the emit/sanitization pipeline.
 - **Manifest-Driven Sourcing:** Utilizes the `package.json` manifest as the authoritative source of truth for the
   project scope (via the `files` array).
-- **Virtual File System (VFS):** All projects are loaded into an in-memory `ts-morph` environment to ensure
+- **Virtual File System (VFS):** All project instances are loaded into an in-memory `ts-morph` environment to ensure
   cross-platform compatibility.
 - **Unified Local Resolution:** `FileTSProject` acts as a polymorphic loader that resolves both raw directory structures
   and compressed archives using the same manifest logic.
@@ -24,7 +24,7 @@ in-memory strings, local file systems, or remote archives) and produces a saniti
 classDiagram
     direction TB
 
-    class ATSProject {
+    class ATSProjectInstance {
         <<abstract>>
         #Project project
         +emitJs() string
@@ -46,9 +46,9 @@ classDiagram
         +fetchAndUnpack() Promise~void~
     }
 
-    ATSProject <|-- InlineTSProject
-    ATSProject <|-- FileTSProject
-    ATSProject <|-- WebTarTSProject
+    ATSProjectInstance <|-- InlineTSProject
+    ATSProjectInstance <|-- FileTSProject
+    ATSProjectInstance <|-- WebTarTSProject
 ```
 
 ## Behavioral Diagram
@@ -79,7 +79,7 @@ graph TD
 
 ## Components
 
-### `ATSProject` (Abstract)
+### `ATSProjectInstance` (Abstract)
 
 The foundational class containing the logic for `ts-morph` initialization and JavaScript bundling. It handles the shared
 sanitization logic required to flatten the JS bundle for the QuickJS VM.
@@ -97,7 +97,7 @@ A unified loader for local assets. It follows these rules:
    `package.json`, it uses it directly.
 2. **Archive Handling:** If the path points to a `.tar.gz` file, it extracts the archive into memory first.
 3. **Manifest Authority:** Regardless of the source (raw files or archive), it **must** read the `package.json` and use
-   the `files` field to determine which source files are included in the virtual project.
+   the `files` field to determine which source files are included in the virtual project instance.
 
 ### `WebTarTSProject`
 

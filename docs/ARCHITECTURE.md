@@ -10,11 +10,11 @@ updates through a Directed Acyclic Graph (DAG).
 ## Business Terminology & Mental Model
 
 - **Host Environment:** The outer runtime (Node.js, Browser) managing the UI and the lifecycle of the engine.
-- **Engine (OpenModelTSEngine):** The core orchestrator. It consumes bundled code from **TSProject**, manages the
-  Host-VM bridge, and handles reactive execution.
-- **TSProject:** An abstraction layer for sourcing, transpiling (via `ts-morph`), and bundling TypeScript models. It
-  supports local file systems (via `package.json` or archives), remote URLs (via GitHub releases), and inline memory
-  maps.
+- **Engine (OpenModelTSEngine):** The core orchestrator. It consumes bundled code from **TSProjectInstance**, manages
+  the Host-VM bridge, and handles reactive execution.
+- **TSProjectInstance:** An abstraction layer for sourcing, transpiling (via `ts-morph`), and bundling TypeScript
+  models. It supports local file systems (via `package.json` or archives), remote URLs (via GitHub releases), and inline
+  memory maps.
 
 - **VM (Sandboxed Environment):** The QuickJS WASM instance where domain logic executes securely.
 - **Workbook:** A TypeScript class decorated with `@Workbook` that defines the reactive model.
