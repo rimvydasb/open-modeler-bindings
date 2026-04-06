@@ -137,7 +137,7 @@ fine-grained reactivity for nested objects and lists.
 ### Property Decorators
 
 | Node Type       | Architectural Role | VM Trace Behavior     | Associated Events                                                | Description                                                                                                        |
-|-----------------|--------------------|-----------------------|------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| --------------- | ------------------ | --------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `@InputNode`    | Source Node        | Cached in Trace       | `onNodeDataChanged`                                              | Captures user inputs from GUI. Use `mutate` to trigger change and push invalidation.                               |
 | `@FunctionNode` | Calculation Node   | Cached in Trace       | `onBeforeNodeExecution`,<br>`onAfterNodeExecution`               | Pure business logic computation. Memoizes results to prevent redundant calculation.                                |
 | `@TermsNode`    | Container Node     | Bypasses Trace (Self) | `onBeforeTermExecution`,<br>`onAfterTermExecution` (Inner terms) | Instantiates a `TermsSet`. Skips self-events; inner terms are cached granularly.                                   |

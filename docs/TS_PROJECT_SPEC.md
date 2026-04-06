@@ -4,18 +4,19 @@
 
 The `TSProject` module provides a unified abstraction for managing, transpiling, and bundling TypeScript source files.
 It wraps the `ts-morph` engine to provide a consistent interface for different project sourcing strategies (e.g.,
-in-memory strings, physical files, or compressed archives) and produces a sanitized JavaScript bundle required by the
+in-memory strings, local file systems, or remote archives) and produces a sanitized JavaScript bundle required by the
 `OpenModelTSEngine`.
 
 ## Main Concepts
 
 - **Abstract Project (`ATSProject`):** The core base class that manages the internal `ts-morph` project, compiler
   options, and the emit/sanitization pipeline.
-- **Virtual File System (VFS):** All project types utilize an in-memory file system to ensure portability across
-  environments (Browser, Node.js).
-- **Source Sourcing:** Specialized implementations handle the retrieval and injection of source code into the VFS.
-- **Sanitized Emit:** The process of compiling TypeScript into a single JavaScript string and applying transformations
-  to ensure compatibility with the VM's global scope.
+- **Manifest-Driven Sourcing:** Utilizes the `package.json` manifest as the authoritative source of truth for the
+  project scope (via the `files` array).
+- **Virtual File System (VFS):** All projects are loaded into an in-memory `ts-morph` environment to ensure
+  cross-platform compatibility.
+- **Unified Local Resolution:** `FileTSProject` acts as a polymorphic loader that resolves both raw directory structures
+  and compressed archives using the same manifest logic.
 
 ## Structural Diagram
 
@@ -26,7 +27,6 @@ classDiagram
     class ATSProject {
         <<abstract>>
         #Project project
-        +addFile(path: string, content: string) void
         +emitJs() string
         #sanitize(js: string) string*
     }
@@ -36,75 +36,81 @@ classDiagram
     }
 
     class FileTSProject {
-        +constructor(filePaths: string[])
-        +loadFromFs() Promise~void~
+        +constructor(path: string)
+        +load() Promise~void~
+        -resolveManifest(root: string) PackageJson
     }
 
-    class TarTSProject {
-        +constructor(tarBuffer: ArrayBuffer)
-        +unpack() Promise~void~
+    class WebTarTSProject {
+        +constructor(url: string)
+        +fetchAndUnpack() Promise~void~
     }
 
     ATSProject <|-- InlineTSProject
     ATSProject <|-- FileTSProject
-    ATSProject <|-- TarTSProject
+    ATSProject <|-- WebTarTSProject
 ```
 
 ## Behavioral Diagram
 
-### Project Loading and Transpilation
+### FileTSProject Resolution Logic
+
+The `FileTSProject` employs a hierarchical resolution strategy to identify the project root and the subset of files to
+be included in the transpilation bundle.
 
 ```mermaid
-sequenceDiagram
-    participant Host as Host/Engine
-    participant Project as TSProject Implementation
-    participant Morph as ts-morph (VFS)
+graph TD
+    Start([Constructor Path]) --> IsTar{Is .tar.gz?}
 
-    Host->>Project: new Implementation(...)
-    Project->>Morph: Initialize Project (VFS)
-    Project->>Morph: addSourceFile(path, content)
-    Host->>Project: emitJs()
-    Project->>Morph: emitToMemory()
-    Morph-->>Project: EmitResult (JS files)
-    Project->>Project: sanitize(bundle)
-    Project-->>Host: Sanitized JS String
+    IsTar -- Yes --> Unpack[Extract Archive to Memory]
+    Unpack --> FindPkgArchive[Locate package.json in Archive]
+
+    IsTar -- No --> IsFile{Is package.json?}
+    IsFile -- Yes --> UsePkg[Use provided package.json]
+    IsFile -- No --> SearchPkg[Search directory for package.json]
+
+    UsePkg --> ReadFiles[Extract 'files' glob patterns]
+    SearchPkg --> ReadFiles
+    FindPkgArchive --> ReadFiles
+
+    ReadFiles --> AddVFS[Add matching files to VFS]
+    AddVFS --> End([Project Ready])
 ```
 
 ## Components
 
 ### `ATSProject` (Abstract)
 
-The foundational class containing the logic for `ts-morph` initialization and JavaScript bundling. It defines the
-`emitJs` method which orchestrates the compilation and post-processing (sanitization).
+The foundational class containing the logic for `ts-morph` initialization and JavaScript bundling. It handles the shared
+sanitization logic required to flatten the JS bundle for the QuickJS VM.
 
 ### `InlineTSProject`
 
-Designed for scenarios where source code is already available as strings (e.g., web IDEs, dynamic model generation). It
-accepts a map of file paths to code.
+Designed for scenarios where source code is already available as strings. Ideal for browser-based editors or dynamically
+generated models.
 
 ### `FileTSProject`
 
-Used in server-side environments (Node.js) to load source files directly from the physical disk into the virtual
-project.
+A unified loader for local assets. It follows these rules:
 
-### `TarTSProject`
+1. **Path Resolution:** If provided a directory, it searches for a `package.json`. If provided a full path to a
+   `package.json`, it uses it directly.
+2. **Archive Handling:** If the path points to a `.tar.gz` file, it extracts the archive into memory first.
+3. **Manifest Authority:** Regardless of the source (raw files or archive), it **must** read the `package.json` and use
+   the `files` field to determine which source files are included in the virtual project.
 
-Facilitates the distribution of models as compressed `.tar` files. It unpacks the archive in memory and populates the
-project with the extracted contents.
+### `WebTarTSProject`
+
+Designed for remote runtime execution. It fetches a `.tar.gz` from a URL (e.g., GitHub Releases), extracts it, and then
+follows the same manifest-driven logic as `FileTSProject` to populate the VFS.
 
 ## API Documentation
 
-### `ATSProject` Methods
+### The `package.json` Contract
 
-- **`emitJs(): string`**: Triggers the TypeScript compilation and returns a unified, sanitized JavaScript string.
-- **`addFile(path: string, content: string): void`**: Manually injects a file into the project's virtual file system.
-- **`getProject(): Project`**: Provides direct access to the underlying `ts-morph` Project instance for advanced
-  manipulations.
+`FileTSProject` and `WebTarTSProject` strictly adhere to the `package.json` fields defined in
+`OPEN_MODEL_PROJECT_SPEC.md`:
 
-### Implementation Specifics
-
-| Class             | Primary Input            | Use Case                                      |
-| ----------------- | ------------------------ | --------------------------------------------- |
-| `InlineTSProject` | `Record<string, string>` | Browser-based editors, simple dynamic models. |
-| `FileTSProject`   | `string[]` (paths)       | CLI tools, server-side execution.             |
-| `TarTSProject`    | `ArrayBuffer / Buffer`   | Porting complex projects as single artifacts. |
+- **`files`**: An array of glob patterns or file paths. Only files matching these patterns are added to the internal
+  `ts-morph` project.
+- **`exports`**: Used to identify the primary entry points for the model execution.
