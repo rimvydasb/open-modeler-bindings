@@ -1,33 +1,44 @@
-import type { PaymentLine } from "./types.ts";
+import type {PaymentLine} from './types.ts';
 
-export function calculateMonthlyPayment({principal, annualRate, months}: {
+export function calculateMonthlyPayment({
+    principal,
+    annualRate,
+    months,
+}: {
     principal: number;
     annualRate: number;
     months: number;
 }): {
-    monthlyPayment: number
+    monthlyPayment: number;
 } {
-    console.log("[user defined] calculateMonthlyPayment...");
+    console.log('[user defined] calculateMonthlyPayment...');
 
     const monthlyRate = annualRate / 100 / 12;
-    if (monthlyRate === 0) return {
-        monthlyPayment: principal / months
-    };
+    if (monthlyRate === 0)
+        return {
+            monthlyPayment: principal / months,
+        };
 
     return {
-        monthlyPayment: (principal * (monthlyRate * Math.pow(1 + monthlyRate, months))) / (Math.pow(1 + monthlyRate, months) - 1)
-    }
+        monthlyPayment:
+            (principal * (monthlyRate * Math.pow(1 + monthlyRate, months))) / (Math.pow(1 + monthlyRate, months) - 1),
+    };
 }
 
-export function generateLoanSchedule({loanAmount, monthlyPayment, annualInterestRate, termMonths, startDate}: {
-    loanAmount: number,
-    monthlyPayment: number,
-    annualInterestRate: number,
-    termMonths: number,
-    startDate: Date
-}): { loanSchedule: PaymentLine[] } {
-
-    console.log("[user defined] generateLoanSchedule...");
+export function generateLoanSchedule({
+    loanAmount,
+    monthlyPayment,
+    annualInterestRate,
+    termMonths,
+    startDate,
+}: {
+    loanAmount: number;
+    monthlyPayment: number;
+    annualInterestRate: number;
+    termMonths: number;
+    startDate: Date;
+}): {loanSchedule: PaymentLine[]} {
+    console.log('[user defined] generateLoanSchedule...');
 
     const monthlyRate = annualInterestRate / 100 / 12;
 
@@ -57,6 +68,6 @@ export function generateLoanSchedule({loanAmount, monthlyPayment, annualInterest
     }
 
     return {
-        loanSchedule: schedule
-    }
+        loanSchedule: schedule,
+    };
 }

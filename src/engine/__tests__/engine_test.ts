@@ -1,12 +1,11 @@
-import { describe, it, expect } from "@jest/globals";
-import { OpenModelTSEngine } from "../OpenModelTSEngine.ts";
+import {describe, it, expect} from '@jest/globals';
+import {OpenModelTSEngine} from '../OpenModelTSEngine.ts';
 
-describe("OpenModelTSEngine", () => {
-
-    it("evaluates a basic workbook correctly", async () => {
+describe('OpenModelTSEngine', () => {
+    it('evaluates a basic workbook correctly', async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({
-            "/bindings.ts": `
+            '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function FunctionNode(target, context) { return target; }
                 export function evalWorkbook(loader) {
@@ -14,24 +13,24 @@ describe("OpenModelTSEngine", () => {
                     return { run: { result: w.run.result } };
                 }
             `,
-            "/main.ts": `
+            '/main.ts': `
                 import { Workbook, FunctionNode } from "./bindings";
                 @Workbook
                 export class myWorkbook {
                     @FunctionNode get run() { return { result: 42 }; }
                 }
-            `
+            `,
         });
         await engine.boot();
 
-        const results = engine.executeWorkbook("myWorkbook", "run");
+        const results = engine.executeWorkbook('myWorkbook', 'run');
         expect(results.run.result).toBe(42);
     });
 
-    it("supports reactivity via mutate()", async () => {
+    it('supports reactivity via mutate()', async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({
-            "/bindings.ts": `
+            '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function InputNode(target, context) {
                     const { name } = context;
@@ -55,7 +54,7 @@ describe("OpenModelTSEngine", () => {
                     globalThis.TRACE_STORE[nodeName] = value;
                 }
             `,
-            "/main.ts": `
+            '/main.ts': `
                 import { Workbook, InputNode, FunctionNode } from "./bindings";
                 @Workbook
                 export class myWorkbook {
@@ -64,26 +63,26 @@ describe("OpenModelTSEngine", () => {
                         return { val: this.myIn * 2 };
                     }
                 }
-            `
+            `,
         });
         await engine.boot();
 
         // 1. Initial execution
-        const res1 = engine.executeWorkbook("myWorkbook", "double");
+        const res1 = engine.executeWorkbook('myWorkbook', 'double');
         expect(res1.double.val).toBe(20);
 
         // 2. Mutate
-        engine.mutate("myIn", 50);
+        engine.mutate('myIn', 50);
 
         // 3. Re-execute
-        const res2 = engine.executeWorkbook("myWorkbook", "double");
+        const res2 = engine.executeWorkbook('myWorkbook', 'double');
         expect(res2.double.val).toBe(100);
     });
 
-    it("isolated execution across multiple workbooks", async () => {
+    it('isolated execution across multiple workbooks', async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({
-            "/bindings.ts": `
+            '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function FunctionNode(target, context) { return target; }
                 export function evalWorkbook(loader) {
@@ -94,7 +93,7 @@ describe("OpenModelTSEngine", () => {
                     return results;
                 }
             `,
-            "/main.ts": `
+            '/main.ts': `
                 import { Workbook, FunctionNode } from "./bindings";
                 @Workbook
                 export class workbookA {
@@ -108,22 +107,22 @@ describe("OpenModelTSEngine", () => {
                         return { val: "B" };
                     }
                 }
-            `
+            `,
         });
         await engine.boot();
 
-        const resA = engine.executeWorkbook("workbookA", "calcA");
-        const resB = engine.executeWorkbook("workbookB", "calcB");
+        const resA = engine.executeWorkbook('workbookA', 'calcA');
+        const resB = engine.executeWorkbook('workbookB', 'calcB');
 
-        expect(resA.calcA.val).toBe("A");
-        expect(resB.calcB.val).toBe("B");
+        expect(resA.calcA.val).toBe('A');
+        expect(resB.calcB.val).toBe('B');
         expect(resA.calcB).toBeUndefined();
     });
 
-    it("emits lifecycle events correctly", async () => {
+    it('emits lifecycle events correctly', async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({
-            "/bindings.ts": `
+            '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function InputNode(target, context) { return target; }
                 export function FunctionNode(target, context) { return target; }
@@ -135,7 +134,7 @@ describe("OpenModelTSEngine", () => {
                     return { calculateMonthlyPayment: res };
                 }
             `,
-            "/main.ts": `
+            '/main.ts': `
                 import { Workbook, FunctionNode } from "./bindings";
                 function calculateMonthlyPayment(args) {
                     return { monthlyPayment: 100 };
@@ -151,33 +150,33 @@ describe("OpenModelTSEngine", () => {
                         });
                     }
                 }
-            `
+            `,
         });
         await engine.boot();
 
         let beforeCalled = false;
         let afterCalled = false;
 
-        engine.onBeforeNodeExecution("myWorkbook", "calculateMonthlyPayment", (input) => {
+        engine.onBeforeNodeExecution('myWorkbook', 'calculateMonthlyPayment', (input) => {
             beforeCalled = true;
             expect(input.principal).toBe(1000);
         });
 
-        engine.onAfterNodeExecution("myWorkbook", "calculateMonthlyPayment", (output) => {
+        engine.onAfterNodeExecution('myWorkbook', 'calculateMonthlyPayment', (output) => {
             afterCalled = true;
             expect(output.monthlyPayment).toBe(100);
         });
 
-        engine.executeWorkbook("myWorkbook", "calculateMonthlyPayment");
+        engine.executeWorkbook('myWorkbook', 'calculateMonthlyPayment');
 
         expect(beforeCalled).toBe(true);
         expect(afterCalled).toBe(true);
     });
 
-    it("emits term execution events correctly", async () => {
+    it('emits term execution events correctly', async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({
-            "/bindings.ts": `
+            '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function TermsSet(target) { target.__isTermsSet = true; return target; }
                 export function TermsNode(target, context) { return target; }
@@ -189,7 +188,7 @@ describe("OpenModelTSEngine", () => {
                     return { age: res };
                 }
             `,
-            "/main.ts": `
+            '/main.ts': `
                 import { Workbook, TermsSet, TermsNode } from "./bindings";
                 @TermsSet
                 class AppTerms {
@@ -199,32 +198,32 @@ describe("OpenModelTSEngine", () => {
                 export class myWorkbook {
                     @TermsNode get application() { return new AppTerms(); }
                 }
-            `
+            `,
         });
         await engine.boot();
 
         let beforeCalled = false;
         let afterCalled = false;
 
-        engine.onBeforeTermExecution("myWorkbook", "application.age", (input) => {
+        engine.onBeforeTermExecution('myWorkbook', 'application.age', (input) => {
             beforeCalled = true;
         });
 
-        engine.onAfterTermExecution("myWorkbook", "application.age", (output) => {
+        engine.onAfterTermExecution('myWorkbook', 'application.age', (output) => {
             afterCalled = true;
             expect(output).toBe(30);
         });
 
-        engine.executeWorkbook("myWorkbook", "application");
+        engine.executeWorkbook('myWorkbook', 'application');
 
         expect(beforeCalled).toBe(true);
         expect(afterCalled).toBe(true);
     });
 
-    it("supports OutputNodes with event emission", async () => {
+    it('supports OutputNodes with event emission', async () => {
         const engine = new OpenModelTSEngine();
         await engine.loadProject({
-            "/bindings.ts": `
+            '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function OutputNode(target, context) {
                     return function() {
@@ -239,7 +238,7 @@ describe("OpenModelTSEngine", () => {
                     return {};
                 }
             `,
-            "/main.ts": `
+            '/main.ts': `
                 import { Workbook, OutputNode } from "./bindings";
                 @Workbook
                 export class myWorkbook {
@@ -248,18 +247,17 @@ describe("OpenModelTSEngine", () => {
                         return [{ month: 1, balance: 100 }];
                     }
                 }
-            `
+            `,
         });
         await engine.boot();
 
         let tableData: any = null;
-        engine.onNodeDataChanged("myWorkbook", "renderLoanScheduleTable", (data) => {
+        engine.onNodeDataChanged('myWorkbook', 'renderLoanScheduleTable', (data) => {
             tableData = data;
         });
 
-        engine.executeWorkbook("myWorkbook", "renderLoanScheduleTable");
+        engine.executeWorkbook('myWorkbook', 'renderLoanScheduleTable');
 
-        expect(tableData).toEqual([{ month: 1, balance: 100 }]);
+        expect(tableData).toEqual([{month: 1, balance: 100}]);
     });
-
 });

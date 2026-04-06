@@ -6,9 +6,9 @@ _Brief high-level description of the module's responsibility and its role in the
 
 ## Main Concepts
 
-_Main concepts that this module introduces, e.g. key patterns, or architectural principles. This section
-should provide enough but brief context for an Agent with decision solutions and software engineering background.
-Concepts are listed in bullet points_
+_Main concepts that this module introduces, e.g. key patterns, or architectural principles. This section should provide
+enough but brief context for an Agent with decision solutions and software engineering background. Concepts are listed
+in bullet points_
 
 ## Structural Diagram
 
@@ -49,7 +49,7 @@ sequenceDiagram
 _For complex flows, you can use high level Flow diagram and list phases of the flow with brief descriptions. If Sequence
 diagram is used, then you can split in phases with `Note over` and list them as well._
 
-1. **_Phase Name_** 
+1. **_Phase Name_**
 
 _Brief description of what happens in this phase._
 

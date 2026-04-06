@@ -3,10 +3,11 @@ import {
     InputNode,
     FunctionNode,
     ChartNode,
-    OutputNode, evalWorkbook
-} from "@open-modeler-bindings/v1alpha/bindings";
-import { calculateMonthlyPayment, generateLoanSchedule } from "./library.ts";
-import type { LoanInputs } from "./types.ts";
+    OutputNode,
+    evalWorkbook,
+} from '@open-modeler-bindings/v1alpha/bindings';
+import {calculateMonthlyPayment, generateLoanSchedule} from './library.ts';
+import type {LoanInputs} from './types.ts';
 
 export const INPUT_VARIABLES: LoanInputs = {
     loanAmount: 100000,

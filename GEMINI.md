@@ -17,10 +17,11 @@ transparent updates to complex dependency graphs.
 
 ### Architecture & Key Components
 
-- **`OpenModelTSEngine` (`src/engine/OpenModelTSEngine.ts`):** The core orchestrator. It handles the full lifecycle: loading TS
-  files into a virtual project, transpiling them to sanitized JS, booting the QuickJS VM, and executing functions or
-  mutations.
-- **Reactivity Framework (`src/bindings/v1alpha/bindings.ts`):** Implements a Directed Acyclic Graph (DAG) for reactive calculations.
+- **`OpenModelTSEngine` (`src/engine/OpenModelTSEngine.ts`):** The core orchestrator. It handles the full lifecycle:
+  loading TS files into a virtual project, transpiling them to sanitized JS, booting the QuickJS VM, and executing
+  functions or mutations.
+- **Reactivity Framework (`src/bindings/v1alpha/bindings.ts`):** Implements a Directed Acyclic Graph (DAG) for reactive
+  calculations.
     - **Discovery Pulls:** Automatically discovers dependencies during the first execution via `ACTIVE_EVALUATING_NODE`
       tracking.
     - **Invalidation Pushes:** When an input is mutated via `mutateInput`, it pushes invalidation signals downstream to
@@ -34,13 +35,15 @@ transparent updates to complex dependency graphs.
 ### Essential Commands
 
 - **Run Tests:** `npm test` (Runs all `tests/*.ts` and `**/__tests__/*.ts` using Jest).
+- **Format Project:** `npm run format` (Aligns and wraps all Markdown and TypeScript files using Prettier).
 - **Build Project:** `npm run build` (Compiles TypeScript using `tsc`).
 - **Dependency Management:** `npx ncu -u` (Updates dependencies to the latest stable versions).
 
 ### Project Configuration
 
 - **Node.js Version:** Requires `>=24.0.0` (specified in `package.json`).
-- **Entry Point:** `src/engine/OpenModelTSEngine.ts` for the engine; `src/bindings/v1alpha/bindings.ts` for the framework.
+- **Entry Point:** `src/engine/OpenModelTSEngine.ts` for the engine; `src/bindings/v1alpha/bindings.ts` for the
+  framework.
 
 ## Development Conventions
 
@@ -51,15 +54,16 @@ into the code that runs inside the VM. All source files must be loaded into the 
 
 ### 2. Reactivity Logic
 
-When defining domain models (e.g., in `demo/loan-schedule/`), use the decorators from `@open-modeler-bindings/v1alpha/bindings`. This ensures that the engine can correctly track and invalidate dependencies.
+When defining domain models (e.g., in `demo/loan-schedule/`), use the decorators from
+`@open-modeler-bindings/v1alpha/bindings`. This ensures that the engine can correctly track and invalidate dependencies.
 
 ### 3. Testing Standards
 
 - **Framework Testing:** Always test against the actual `src/bindings/v1alpha/bindings.ts` logic.
 - **Engine Testing:** Use `loadProject` with both virtual (in-memory strings) and physical (using `readFileSync`) file
   inputs to verify robustness.
-- **Sanitization Verification:** If adding new TS features, verify that the `sanitize` regex in `src/engine/OpenModelTSEngine.ts`
-  correctly handles the emitted JS.
+- **Sanitization Verification:** If adding new TS features, verify that the `sanitize` regex in
+  `src/engine/OpenModelTSEngine.ts` correctly handles the emitted JS.
 
 ### 4. Code Standards
 

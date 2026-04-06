@@ -1,5 +1,5 @@
-import { TermsSet } from "@open-modeler-bindings/v1alpha/bindings";
-import type { Application } from "./types.ts";
+import {TermsSet} from '@open-modeler-bindings/v1alpha/bindings';
+import type {Application} from './types.ts';
 
 @TermsSet
 export class ApplicationTerms {
@@ -25,15 +25,15 @@ export class ApplicationTerms {
     }
 }
 
-export function validateApplication({age, requestedAmount}: {age: number, requestedAmount: number}): {
-    eligible: boolean,
-    reason?: string
+export function validateApplication({age, requestedAmount}: {age: number; requestedAmount: number}): {
+    eligible: boolean;
+    reason?: string;
 } {
     if (age < 18) {
-        return { eligible: false, reason: "Applicant must be at least 18 years old." };
+        return {eligible: false, reason: 'Applicant must be at least 18 years old.'};
     }
     if (requestedAmount > 50000) {
-        return { eligible: false, reason: "Requested amount exceeds maximum limit of 50,000." };
+        return {eligible: false, reason: 'Requested amount exceeds maximum limit of 50,000.'};
     }
-    return { eligible: true };
+    return {eligible: true};
 }

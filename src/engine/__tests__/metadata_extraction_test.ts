@@ -1,38 +1,41 @@
-import { describe, it, expect } from "@jest/globals";
-import { Project, SyntaxKind } from "ts-morph";
+import {describe, it, expect} from '@jest/globals';
+import {Project, SyntaxKind} from 'ts-morph';
 
-describe("ts-morph metadata extraction experiments", () => {
-    it("extracts return types and requirements from accessors", () => {
-        const project = new Project({ useInMemoryFileSystem: true });
-        project.createSourceFile("main.ts", `
+describe('ts-morph metadata extraction experiments', () => {
+    it('extracts return types and requirements from accessors', () => {
+        const project = new Project({useInMemoryFileSystem: true});
+        project.createSourceFile(
+            'main.ts',
+            `
         function calc(args: {a: number}): {b: number} { return {b: 1}; }
         class W {
             accessor myIn = { val: 10 };
             get node() { return calc({a: this.myIn.val}); }
         }
-        `);
-        const file = project.getSourceFileOrThrow("main.ts");
-        const cls = file.getClassOrThrow("W");
+        `,
+        );
+        const file = project.getSourceFileOrThrow('main.ts');
+        const cls = file.getClassOrThrow('W');
 
         const tc = project.getTypeChecker();
         const extractProps = (type: any, node: any) => {
             if (type.isObject() && !type.isArray()) {
                 return type.getProperties().map((p: any) => ({
                     name: p.getName(),
-                    type: tc.getTypeOfSymbolAtLocation(p, node).getText()
+                    type: tc.getTypeOfSymbolAtLocation(p, node).getText(),
                 }));
             }
-            return { type: type.getText() };
+            return {type: type.getText()};
         };
 
         const results: any[] = [];
 
-        cls.getGetAccessors().forEach(getter => {
+        cls.getGetAccessors().forEach((getter) => {
             const returnType = getter.getReturnType();
             const returnMeta = extractProps(returnType, getter);
             let reqMeta: any = [];
-            
-            const returnStmt = getter.getStatements().find(s => s.getKind() === SyntaxKind.ReturnStatement);
+
+            const returnStmt = getter.getStatements().find((s) => s.getKind() === SyntaxKind.ReturnStatement);
             if (returnStmt && returnStmt.isKind(SyntaxKind.ReturnStatement)) {
                 const expr = returnStmt.getExpression();
                 if (expr && expr.isKind(SyntaxKind.CallExpression)) {
@@ -46,28 +49,29 @@ describe("ts-morph metadata extraction experiments", () => {
                     }
                 }
             }
-            results.push({ name: getter.getName(), kind: "getter", returnMeta, reqMeta });
+            results.push({name: getter.getName(), kind: 'getter', returnMeta, reqMeta});
         });
 
-        cls.getProperties().forEach(prop => { // accessors are properties in ts-morph
+        cls.getProperties().forEach((prop) => {
+            // accessors are properties in ts-morph
             const returnType = prop.getType();
             const returnMeta = extractProps(returnType, prop);
-            results.push({ name: prop.getName(), kind: "property", returnMeta, reqMeta: [] });
+            results.push({name: prop.getName(), kind: 'property', returnMeta, reqMeta: []});
         });
 
         expect(results).toEqual([
             {
-                name: "node",
-                kind: "getter",
-                returnMeta: [{ name: "b", type: "number" }],
-                reqMeta: [{ name: "a", type: "number" }]
+                name: 'node',
+                kind: 'getter',
+                returnMeta: [{name: 'b', type: 'number'}],
+                reqMeta: [{name: 'a', type: 'number'}],
             },
             {
-                name: "myIn",
-                kind: "property",
-                returnMeta: [{ name: "val", type: "number" }],
-                reqMeta: []
-            }
+                name: 'myIn',
+                kind: 'property',
+                returnMeta: [{name: 'val', type: 'number'}],
+                reqMeta: [],
+            },
         ]);
     });
 });

@@ -1,7 +1,7 @@
 # Open Model Project Specification
 
-Open Model project can be executed locally with Node, Deno or Bun as well as visualized in Open Modeler Editor.
-Open Model project must contain:
+Open Model project can be executed locally with Node, Deno or Bun as well as visualized in Open Modeler Editor. Open
+Model project must contain:
 
 - `package.json` file with of the box capability to execute project locally and all required declarations for Open
   Modeler Editor.

@@ -56,13 +56,14 @@ function emitEvent(eventType: FrameworkEvent, payload: any): void {
  */
 export function evalWorkbook<T extends Record<string, any>>(
     workbookLoader: new () => T,
-    nodeName?: keyof T
+    nodeName?: keyof T,
 ): Record<string, any> {
     const workbook = new workbookLoader();
     const results: Record<string, any> = {};
 
     const processNode = (key: string) => {
-        const descriptor = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(workbook), key) ||
+        const descriptor =
+            Object.getOwnPropertyDescriptor(Object.getPrototypeOf(workbook), key) ||
             Object.getOwnPropertyDescriptor(workbook, key);
 
         if (descriptor && typeof descriptor.get === 'function') {
@@ -87,7 +88,7 @@ export function evalWorkbook<T extends Record<string, any>>(
         // Look at the prototype for decorators
         const proto = Object.getPrototypeOf(workbook);
         if (proto && proto !== Object.prototype) {
-            Object.getOwnPropertyNames(proto).forEach(p => allProps.add(p));
+            Object.getOwnPropertyNames(proto).forEach((p) => allProps.add(p));
         }
 
         for (const key of allProps) {
@@ -118,20 +119,14 @@ const IS_TERMS_SET = Symbol.for('__isTermsSet');
 /**
  * @Workbook Class Decorator
  */
-export function Workbook<T extends { new (...args: any[]): {} }>(
-    target: T,
-    _context: ClassDecoratorContext<T>
-) {
+export function Workbook<T extends {new (...args: any[]): {}}>(target: T, _context: ClassDecoratorContext<T>) {
     return target;
 }
 
 /**
  * @TermsSet Class Decorator
  */
-export function TermsSet<T extends { new (...args: any[]): {} }>(
-    target: T,
-    _context: ClassDecoratorContext<T>
-) {
+export function TermsSet<T extends {new (...args: any[]): {}}>(target: T, _context: ClassDecoratorContext<T>) {
     (target as any)[IS_TERMS_SET] = true;
     return target;
 }
@@ -141,7 +136,7 @@ export function TermsSet<T extends { new (...args: any[]): {} }>(
  */
 export function InputNode<This, Value>(
     target: ClassAccessorDecoratorTarget<This, Value>,
-    context: ClassAccessorDecoratorContext<This, Value>
+    context: ClassAccessorDecoratorContext<This, Value>,
 ) {
     const nodeName = String(context.name);
 
@@ -159,7 +154,7 @@ export function InputNode<This, Value>(
         },
         init(initialValue: Value) {
             return initialValue;
-        }
+        },
     };
 }
 
@@ -168,7 +163,7 @@ export function InputNode<This, Value>(
  */
 export function FunctionNode<This, Return>(
     target: (this: This) => Return,
-    context: ClassGetterDecoratorContext<This, Return>
+    context: ClassGetterDecoratorContext<This, Return>,
 ) {
     const nodeName = String(context.name);
     return function (this: This): Return {
@@ -186,17 +181,21 @@ export function FunctionNode<This, Return>(
  */
 export function TermsNode<This, Return>(
     target: (this: This) => Return,
-    context: ClassGetterDecoratorContext<This, Return>
+    context: ClassGetterDecoratorContext<This, Return>,
 ) {
     const nodeName = String(context.name);
     return function (this: This): Return {
-        return executeWithTracking(nodeName, () => {
-            const instance = target.call(this) as any;
-            if (instance && typeof instance === 'object' && instance.constructor[IS_TERMS_SET]) {
-                return createTermsProxy(instance, nodeName);
-            }
-            return instance;
-        }, {silent: true});
+        return executeWithTracking(
+            nodeName,
+            () => {
+                const instance = target.call(this) as any;
+                if (instance && typeof instance === 'object' && instance.constructor[IS_TERMS_SET]) {
+                    return createTermsProxy(instance, nodeName);
+                }
+                return instance;
+            },
+            {silent: true},
+        );
     };
 }
 
@@ -205,15 +204,19 @@ export function TermsNode<This, Return>(
  */
 export function ChartNode<This, Return>(
     target: (this: This) => Return,
-    context: ClassGetterDecoratorContext<This, Return>
+    context: ClassGetterDecoratorContext<This, Return>,
 ) {
     const nodeName = String(context.name);
     return function (this: This): Return {
-        return executeWithTracking(nodeName, () => {
-            const data = target.call(this);
-            emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data});
-            return data;
-        }, {skipCache: true});
+        return executeWithTracking(
+            nodeName,
+            () => {
+                const data = target.call(this);
+                emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data});
+                return data;
+            },
+            {skipCache: true},
+        );
     };
 }
 
@@ -222,15 +225,19 @@ export function ChartNode<This, Return>(
  */
 export function OutputNode<This, Return>(
     target: (this: This) => Return,
-    context: ClassGetterDecoratorContext<This, Return>
+    context: ClassGetterDecoratorContext<This, Return>,
 ) {
     const nodeName = String(context.name);
     return function (this: This): Return {
-        return executeWithTracking(nodeName, () => {
-            const data = target.call(this);
-            emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data});
-            return data;
-        }, {skipCache: true});
+        return executeWithTracking(
+            nodeName,
+            () => {
+                const data = target.call(this);
+                emitEvent(FrameworkEvent.NODE_DATA_CHANGED, {nodeName, data});
+                return data;
+            },
+            {skipCache: true},
+        );
     };
 }
 
@@ -245,34 +252,38 @@ function createTermsProxy(target: any, parentNodeName: string, parentDependency?
 
             if (descriptor && typeof descriptor.get === 'function') {
                 const termKey = `${parentNodeName}.${propName}`;
-                return executeWithTracking(termKey, () => {
-                    // Register dependency on the parent container node
-                    registerDependency(parentNodeName);
-                    // If it belongs to an array/list, register dependency on that collection node
-                    if (parentDependency) registerDependency(parentDependency);
+                return executeWithTracking(
+                    termKey,
+                    () => {
+                        // Register dependency on the parent container node
+                        registerDependency(parentNodeName);
+                        // If it belongs to an array/list, register dependency on that collection node
+                        if (parentDependency) registerDependency(parentDependency);
 
-                    emitEvent(FrameworkEvent.BEFORE_TERM_EXECUTION, { nodeName: termKey, input: {} });
-                    const result = descriptor.get!.call(receiver);
-                    emitEvent(FrameworkEvent.AFTER_TERM_EXECUTION, { nodeName: termKey, output: result });
+                        emitEvent(FrameworkEvent.BEFORE_TERM_EXECUTION, {nodeName: termKey, input: {}});
+                        const result = descriptor.get!.call(receiver);
+                        emitEvent(FrameworkEvent.AFTER_TERM_EXECUTION, {nodeName: termKey, output: result});
 
-                    // Recursive Proxy Wrapping for nested TermsSets
-                    if (result && typeof result === 'object' && result !== null) {
-                        if (Array.isArray(result)) {
-                            return result.map((item, idx) => {
-                                if (item && typeof item === 'object' && item.constructor[IS_TERMS_SET]) {
-                                    return createTermsProxy(item, `${termKey}[${idx}]`, termKey);
-                                }
-                                return item;
-                            });
-                        } else if (result.constructor[IS_TERMS_SET]) {
-                            return createTermsProxy(result, termKey);
+                        // Recursive Proxy Wrapping for nested TermsSets
+                        if (result && typeof result === 'object' && result !== null) {
+                            if (Array.isArray(result)) {
+                                return result.map((item, idx) => {
+                                    if (item && typeof item === 'object' && item.constructor[IS_TERMS_SET]) {
+                                        return createTermsProxy(item, `${termKey}[${idx}]`, termKey);
+                                    }
+                                    return item;
+                                });
+                            } else if (result.constructor[IS_TERMS_SET]) {
+                                return createTermsProxy(result, termKey);
+                            }
                         }
-                    }
-                    return result;
-                }, {silent: true});
+                        return result;
+                    },
+                    {silent: true},
+                );
             }
             return Reflect.get(obj, prop, receiver);
-        }
+        },
     });
 }
 
@@ -321,7 +332,7 @@ function registerDependency(sourceNode: string): void {
 function executeWithTracking<T>(
     nodeName: string,
     evaluate: () => T,
-    options: { skipCache?: boolean; silent?: boolean } = {}
+    options: {skipCache?: boolean; silent?: boolean} = {},
 ): T {
     if (EVALUATION_STACK.includes(nodeName)) {
         throw new Error(`Circular dependency detected: ${EVALUATION_STACK.join(' -> ')} -> ${nodeName}`);
@@ -371,7 +382,7 @@ export function getTopologicalOrder(): string[] {
     const temp = new Set<string>();
 
     function visit(nodeName: string) {
-        if (temp.has(nodeName)) throw new Error("Cycle detected during topological sort.");
+        if (temp.has(nodeName)) throw new Error('Cycle detected during topological sort.');
         if (!visited.has(nodeName)) {
             temp.add(nodeName);
             const dependents = Array.from(FORWARD_EDGES[nodeName] || []);
@@ -395,9 +406,7 @@ export function getTopologicalOrder(): string[] {
 /**
  * Discovers all dependencies in a workbook by evaluating every node once.
  */
-export function validateWorkbook<T extends Record<string, any>>(
-    workbookLoader: new () => T
-): void {
+export function validateWorkbook<T extends Record<string, any>>(workbookLoader: new () => T): void {
     evalWorkbook(workbookLoader);
 }
 

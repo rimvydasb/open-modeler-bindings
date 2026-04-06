@@ -1,5 +1,5 @@
-import {Project} from "ts-morph";
-import {getQuickJS, QuickJSContext, type QuickJSHandle} from "quickjs-emscripten";
+import {Project} from 'ts-morph';
+import {getQuickJS, QuickJSContext, type QuickJSHandle} from 'quickjs-emscripten';
 
 /**
  * Manages QuickJS handles for automatic cleanup.
@@ -45,7 +45,7 @@ export type NodeExecutionCallback = (payload: Record<string, any>) => void;
  */
 export class OpenModelTSEngine {
     private project: Project;
-    private jsCode: string = "";
+    private jsCode: string = '';
     private vm: QuickJSContext | null = null;
     private options: EngineOptions;
 
@@ -61,14 +61,14 @@ export class OpenModelTSEngine {
             compilerOptions: {
                 target: 7, // ESNext
                 module: 0, // None
-                lib: ["esnext"],
+                lib: ['esnext'],
                 alwaysStrict: false,
-                baseUrl: "/",
+                baseUrl: '/',
                 paths: {
-                    "@open-modeler-bindings/*": ["/src/bindings/*.ts"]
-                }
+                    '@open-modeler-bindings/*': ['/src/bindings/*.ts'],
+                },
             },
-            useInMemoryFileSystem: true
+            useInMemoryFileSystem: true,
         });
     }
 
@@ -85,8 +85,8 @@ export class OpenModelTSEngine {
         const files = emitResult.getFiles();
         if (this.options.debug) console.log(`[OpenModelTSEngine] Emitted ${files.length} files to memory.`);
 
-        let frameworkJs = "";
-        let otherJs = "";
+        let frameworkJs = '';
+        let otherJs = '';
 
         for (const file of files) {
             let text = file.text;
@@ -94,48 +94,48 @@ export class OpenModelTSEngine {
             text = this.sanitize(text);
 
             // Prioritize framework/bindings to ensure they are defined before use
-            if (file.filePath.endsWith("bindings.js") || file.filePath.endsWith("reactive_graph.js")) {
+            if (file.filePath.endsWith('bindings.js') || file.filePath.endsWith('reactive_graph.js')) {
                 frameworkJs += `\n// --- ${file.filePath} ---\n` + text;
             } else {
                 otherJs += `\n// --- ${file.filePath} ---\n` + text;
             }
         }
 
-        this.jsCode = "const exports = {};\nvar global = globalThis;\n" + frameworkJs + otherJs;
+        this.jsCode = 'const exports = {};\nvar global = globalThis;\n' + frameworkJs + otherJs;
 
         if (this.options.debug) {
-            console.log("[OpenModelTSEngine] Project transpiled successfully. Total length:", this.jsCode.length);
+            console.log('[OpenModelTSEngine] Project transpiled successfully. Total length:', this.jsCode.length);
         }
     }
 
     private sanitize(js: string): string {
         let code = js;
-        code = code.replace(/^"use strict";/gm, "");
+        code = code.replace(/^"use strict";/gm, '');
 
         // Replace 'export const', 'export let', 'export function', etc. with global declarations
-        code = code.replace(/^export const /gm, "var ");
-        code = code.replace(/^export let /gm, "var ");
-        code = code.replace(/^export function /gm, "function ");
-        code = code.replace(/^export class /gm, "var ");
+        code = code.replace(/^export const /gm, 'var ');
+        code = code.replace(/^export let /gm, 'var ');
+        code = code.replace(/^export function /gm, 'function ');
+        code = code.replace(/^export class /gm, 'var ');
 
-        code = code.replace(/^const TRACE_STORE =/gm, "var TRACE_STORE =");
-        code = code.replace(/^export /gm, "");
-        code = code.replace(/^import .* from .*$/gm, "");
-        code = code.replace(/^const .* = require\(.*\);$/gm, "");
-        code = code.replace(/^Object\.defineProperty\(exports,.*$/gm, "");
-        code = code.replace(/^exports\..* = void 0;.*$/gm, "");
+        code = code.replace(/^const TRACE_STORE =/gm, 'var TRACE_STORE =');
+        code = code.replace(/^export /gm, '');
+        code = code.replace(/^import .* from .*$/gm, '');
+        code = code.replace(/^const .* = require\(.*\);$/gm, '');
+        code = code.replace(/^Object\.defineProperty\(exports,.*$/gm, '');
+        code = code.replace(/^exports\..* = void 0;.*$/gm, '');
 
         // Convert exports.foo = ... to globalThis.foo = ...
-        code = code.replace(/exports\.(\w+) =/gm, "globalThis.$1 =");
-        code = code.replace(/exports\./gm, "");
+        code = code.replace(/exports\.(\w+) =/gm, 'globalThis.$1 =');
+        code = code.replace(/exports\./gm, '');
 
-        code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, "$1");
+        code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, '$1');
         code = code.replace(/(\w+)\.(\w+)/g, (match, p1, p2) => {
-            if (p1.includes("_ts_") || p1.startsWith("bindings")) return p2;
+            if (p1.includes('_ts_') || p1.startsWith('bindings')) return p2;
             return match;
         });
 
-        code = code.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, "");
+        code = code.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, '');
 
         return code;
     }
@@ -149,24 +149,27 @@ export class OpenModelTSEngine {
 
         const scope = new Scope();
         try {
-            const logFn = scope.manage(this.vm.newFunction("log", (...args: QuickJSHandle[]) => {
-                const nativeArgs = args.map(arg => this.vm!.dump(arg));
-                if (this.options.debug) {
-                    console.log("[VM Log]", ...nativeArgs);
-                }
-            }));
+            const logFn = scope.manage(
+                this.vm.newFunction('log', (...args: QuickJSHandle[]) => {
+                    const nativeArgs = args.map((arg) => this.vm!.dump(arg));
+                    if (this.options.debug) {
+                        console.log('[VM Log]', ...nativeArgs);
+                    }
+                }),
+            );
             const consoleObj = scope.manage(this.vm.newObject());
-            this.vm.setProp(consoleObj, "log", logFn);
-            this.vm.setProp(this.vm.global, "console", consoleObj);
+            this.vm.setProp(consoleObj, 'log', logFn);
+            this.vm.setProp(this.vm.global, 'console', consoleObj);
 
             // Inject Event Emitter bridge
-            const emitEventFn = scope.manage(this.vm.newFunction("__emitEvent", (typeHandle: QuickJSHandle, payloadHandle: QuickJSHandle) => {
-                const type = this.vm!.dump(typeHandle);
-                const payload = this.vm!.dump(payloadHandle);
-                this.handleVmEvent(type, payload);
-            }));
-            this.vm.setProp(this.vm.global, "__emitEvent", emitEventFn);
-
+            const emitEventFn = scope.manage(
+                this.vm.newFunction('__emitEvent', (typeHandle: QuickJSHandle, payloadHandle: QuickJSHandle) => {
+                    const type = this.vm!.dump(typeHandle);
+                    const payload = this.vm!.dump(payloadHandle);
+                    this.handleVmEvent(type, payload);
+                }),
+            );
+            this.vm.setProp(this.vm.global, '__emitEvent', emitEventFn);
         } finally {
             scope.dispose();
         }
@@ -182,23 +185,23 @@ export class OpenModelTSEngine {
 
     private handleVmEvent(type: string, payload: any) {
         if (type === 'beforeNodeExecution') {
-            const { nodeName, input } = payload;
+            const {nodeName, input} = payload;
             const listener = this.beforeExecListeners.get(nodeName);
             if (listener) listener(input);
         } else if (type === 'afterNodeExecution') {
-            const { nodeName, output } = payload;
+            const {nodeName, output} = payload;
             const listener = this.afterExecListeners.get(nodeName);
             if (listener) listener(output);
         } else if (type === 'beforeTermExecution') {
-            const { nodeName, input } = payload;
+            const {nodeName, input} = payload;
             const listener = this.beforeTermExecListeners.get(nodeName);
             if (listener) listener(input);
         } else if (type === 'afterTermExecution') {
-            const { nodeName, output } = payload;
+            const {nodeName, output} = payload;
             const listener = this.afterTermExecListeners.get(nodeName);
             if (listener) listener(output);
         } else if (type === 'nodeDataChanged') {
-            const { nodeName, data } = payload;
+            const {nodeName, data} = payload;
             const listener = this.dataChangedListeners.get(nodeName);
             if (listener) listener(data);
         }
@@ -228,7 +231,7 @@ export class OpenModelTSEngine {
      * Calls a global function defined in the loaded project.
      */
     execute<T = any>(functionName: string, ...args: any[]): T {
-        if (!this.vm) throw new Error("Engine not booted. Call boot() first.");
+        if (!this.vm) throw new Error('Engine not booted. Call boot() first.');
         return this.callVm(functionName, ...args);
     }
 
@@ -239,35 +242,35 @@ export class OpenModelTSEngine {
      * @param nodeName
      */
     executeWorkbook(workbookName: string, nodeName?: string): Record<string, any> {
-        return this.execute("evalWorkbook", vmRef(workbookName), nodeName);
+        return this.execute('evalWorkbook', vmRef(workbookName), nodeName);
     }
 
     /**
      * Host-side trigger to update input nodes.
      */
     mutate<T>(nodeName: string, value: T): void {
-        if (!this.vm) throw new Error("Engine not booted. Call boot() first.");
-        this.callVm("mutateInput", nodeName, value);
+        if (!this.vm) throw new Error('Engine not booted. Call boot() first.');
+        this.callVm('mutateInput', nodeName, value);
     }
 
     private callVm(methodName: string, ...args: any[]) {
-        if (!this.vm) throw new Error("VM not initialized");
+        if (!this.vm) throw new Error('VM not initialized');
 
         const scope = new Scope();
         try {
             const fnHandle = scope.manage(this.vm.getProp(this.vm.global, methodName));
 
-            if (this.vm.typeof(fnHandle) !== "function") {
+            if (this.vm.typeof(fnHandle) !== 'function') {
                 throw new Error(`Method "${methodName}" not found in VM scope`);
             }
 
-            const vmArgs = args.map(arg => {
-                if (arg && typeof arg === "object" && "__vm_ref" in arg) {
+            const vmArgs = args.map((arg) => {
+                if (arg && typeof arg === 'object' && '__vm_ref' in arg) {
                     return scope.manage(this.vm!.getProp(this.vm!.global, (arg as VmRef).__vm_ref));
                 }
-                if (typeof arg === "string") return scope.manage(this.vm!.newString(arg));
-                if (typeof arg === "number") return scope.manage(this.vm!.newNumber(arg));
-                if (typeof arg === "boolean") return arg ? this.vm!.true : this.vm!.false;
+                if (typeof arg === 'string') return scope.manage(this.vm!.newString(arg));
+                if (typeof arg === 'number') return scope.manage(this.vm!.newNumber(arg));
+                if (typeof arg === 'boolean') return arg ? this.vm!.true : this.vm!.false;
                 if (arg === undefined) return this.vm!.undefined;
                 if (arg === null) return this.vm!.null;
 

@@ -3,16 +3,17 @@ import {
     InputNode,
     TermsNode,
     FunctionNode,
-    OutputNode, evalWorkbook, TRACE_STORE,
-} from "@open-modeler-bindings/v1alpha/bindings";
-import { ApplicationTerms, validateApplication } from "./library.ts";
-import type { Application } from "./types.ts";
+    OutputNode,
+    evalWorkbook
+} from '@open-modeler-bindings/v1alpha/bindings';
+import {ApplicationTerms, validateApplication} from './library.ts';
+import type {Application} from './types.ts';
 
 export const INITIAL_APPLICATION: Application = {
     customer: {
-        firstName: "John",
-        lastName: "Doe",
-        birthday: new Date("1990-01-01"),
+        firstName: 'John',
+        lastName: 'Doe',
+        birthday: new Date('1990-01-01'),
     },
     requestedAmount: 15000,
     termMonths: 36,

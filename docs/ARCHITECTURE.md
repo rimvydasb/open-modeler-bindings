@@ -2,12 +2,18 @@
 
 ## Overview
 
-Open Modeler TypeScript is a high-performance, browser-ready execution engine designed to sandbox pure domain logic within a QuickJS WebAssembly (WASM) virtual machine. It provides a reactive environment where business models (Workbooks) are defined using standard TypeScript decorators, enabling transparent dependency tracking and efficient updates through a Directed Acyclic Graph (DAG).
+Open Modeler TypeScript is a high-performance, browser-ready execution engine designed to sandbox pure domain logic
+within a QuickJS WebAssembly (WASM) virtual machine. It provides a reactive environment where business models
+(Workbooks) are defined using standard TypeScript decorators, enabling transparent dependency tracking and efficient
+updates through a Directed Acyclic Graph (DAG).
 
 ## Business Terminology & Mental Model
 
 - **Host Environment:** The outer runtime (Node.js, Browser) managing the UI and the lifecycle of the engine.
-- **Engine (OpenModelTSEngine):** Orchestrates transpilation (via `ts-morph`), sanitization, and the Host-VM bridge.
+- **Engine (OpenModelTSEngine):** The core orchestrator. It consumes bundled code from **TSProject**, manages the
+  Host-VM bridge, and handles reactive execution.
+- **TSProject:** An abstraction layer for sourcing, transpiling (via `ts-morph`), and bundling TypeScript models from
+  various sources.
 - **VM (Sandboxed Environment):** The QuickJS WASM instance where domain logic executes securely.
 - **Workbook:** A TypeScript class decorated with `@Workbook` that defines the reactive model.
 - **Node:** A discrete unit of execution (Input, Function, or Sink).
@@ -18,7 +24,8 @@ Open Modeler TypeScript is a high-performance, browser-ready execution engine de
 
 ## High-Level Architecture
 
-The system is divided into three primary layers: the **Host Application**, the **Engine Orchestrator**, and the **Sandboxed VM**.
+The system is divided into three primary layers: the **Host Application**, the **Engine Orchestrator**, and the
+**Sandboxed VM**.
 
 ```mermaid
 graph TB
@@ -71,9 +78,10 @@ sequenceDiagram
 
 The architecture is further detailed in the following specialized documents:
 
-| Document | Description |
-| --- | --- |
-| [**OpenModelTSEngine Spec**](./ENGINE_SPEC.md) | Details on transpilation, sanitization, VM bridging, and Host-side API. |
-| [**Bindings & Reactivity Spec**](./BINDINGS_SPEC.md) | In-depth look at the DAG, Trace Store, Pull/Push mechanics, and Decorators. |
-| [**OpenModelTS Spec**](./OPEN_MODEL_TS_SPEC.md) | Developer-facing guide on modeling patterns, decorators, and type safety. |
-| [**Project Structure Spec**](./OPEN_MODEL_PROJECT_SPEC.md) | Requirements for `package.json` and file organization in an Open Model project. |
+| Document                                                   | Description                                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [**OpenModelTSEngine Spec**](./ENGINE_SPEC.md)             | Details on transpilation, sanitization, VM bridging, and Host-side API.                          |
+| [**Bindings & Reactivity Spec**](./BINDINGS_SPEC.md)       | In-depth look at the DAG, Trace Store, Pull/Push mechanics, and Decorators.                      |
+| [**TS Project Spec**](./TS_PROJECT_SPEC.md)                | Specification for managing and bundling TypeScript projects through various sourcing strategies. |
+| [**OpenModelTS Spec**](./OPEN_MODEL_TS_SPEC.md)            | Developer-facing guide on modeling patterns, decorators, and type safety.                        |
+| [**Project Structure Spec**](./OPEN_MODEL_PROJECT_SPEC.md) | Requirements for `package.json` and file organization in an Open Model project.                  |

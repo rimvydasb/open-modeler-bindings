@@ -1,6 +1,7 @@
 # Open Modeler Demo Projects
 
-This directory contains standalone domain model prototypes that showcase the reactivity framework and execution engine of Open Modeler.
+This directory contains standalone domain model prototypes that showcase the reactivity framework and execution engine
+of Open Modeler.
 
 ## Prerequisites
 
@@ -9,14 +10,17 @@ This directory contains standalone domain model prototypes that showcase the rea
 
 ## How to Run a Demo
 
-Each demo is a standalone project with its own `package.json`. To run a specific demo (e.g., `credit-eligibility`), follow these steps:
+Each demo is a standalone project with its own `package.json`. To run a specific demo (e.g., `credit-eligibility`),
+follow these steps:
 
 1.  **Navigate to the demo directory:**
+
     ```bash
     cd demo/credit-eligibility
     ```
 
 2.  **Install dependencies:**
+
     ```bash
     npm install
     ```
@@ -33,11 +37,13 @@ The `npm start` command uses `tsx` to execute the TypeScript code directly using
 For the `loan-schedule-gui` project, the process is similar but uses the Vite development server:
 
 1.  **Navigate to the directory:**
+
     ```bash
     cd demo/loan-schedule-gui
     ```
 
 2.  **Install dependencies:**
+
     ```bash
     npm install
     ```
