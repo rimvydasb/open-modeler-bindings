@@ -1,0 +1,5 @@
+.next
+dist
+node_modules
+public/pkg-web
+package-lock.json
