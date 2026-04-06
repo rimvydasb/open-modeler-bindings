@@ -1,303 +1,103 @@
 # OpenModelTSEngine Specification
 
-The `OpenModelTSEngine` is a robust wrapper around the QuickJS WASM VM, designed to execute OpenModel TypeScript
-projects in a sandboxed environment. It handles transpilation, environment bootstrapping, and safe communication between
-the host and the VM.
+## Overview
 
-## Architectural Overview
+The `OpenModelTSEngine` is a robust, browser-ready orchestrator that sandboxes pure domain logic within a QuickJS WASM virtual machine. It handles the full lifecycle of an OpenModel project: transpiling TypeScript source code in memory, sanitizing it for a flat global scope, booting the VM, and providing a typed bridge for execution, mutation, and asynchronous eventing.
 
-The engine performs the following steps:
+## Main Concepts
 
-1. **Transpilation**: Uses `ts-morph` to convert TypeScript source files into a single compatible JavaScript bundle.
-2. **Sanitization**: Post-processes the transpiled JS to remove module systems (ESM/CommonJS) and adapt it for a flat
-   global scope.
-3. **Bootstrapping**: Initializes the QuickJS VM, sets up host bridges (e.g., `console.log`, event emitters), and
-   evaluates the
-   sanitized JS.
-4. **Execution & Eventing**: Provides a typed interface to call functions, mutate inputs, and listen to asynchronous
-   lifecycle events (Host $\leftrightarrow$ VM).
+- **Host vs. VM Boundary:** Clear separation between the outer runtime (Host) and the sandboxed execution (VM). Communication is serialized via JSON.
+- **In-Memory VFS:** Uses `ts-morph` with a virtual file system to transpile TypeScript without physical disk access, ensuring portability to browsers.
+- **Sanitization Pipeline:** Strips module systems (ESM/CJS) and "use strict" directives from transpiled code to adapt it for the VM's global environment.
+- **Bridge Functions:** Specialized Host-side functions injected into the VM (e.g., `console.log`, `__emitEvent`) to enable bidirectional communication.
+- **Asynchronous Eventing:** A mechanism to push VM lifecycle hooks (e.g., node execution start/end) and UI-ready data back to the Host without blocking the calculation thread.
+- **VM Reference (`VmRef`):** A lightweight handle to a variable already existing in the VM's global scope, avoiding redundant serialization of large structures like Workbook classes.
 
-## API Reference
-
-### Structural Diagram
+## Structural Diagram
 
 ```mermaid
 classDiagram
+    direction TB
+
     class OpenModelTSEngine {
         +constructor(options: EngineOptions)
-        +loadProject(entryPoints: string[] | Record~string, string~) Promise~void~
+        +loadProject(entryPoints: Record~string, string~) Promise~void~
         +boot() Promise~void~
-        +execute~T~(functionName: string, args: any[]) T
+        +execute~T~(functionName: string, ...args: any[]) T
+        +executeWorkbook(workbookName: string, nodeName?: string) Record~string, any~
         +mutate~T~(nodeName: string, value: T) void
-        +onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
-        +onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
-        +onBeforeTermExecution(workbookName: string, nodeName: string, callback: (input: Record~string, any~) => void) void
-        +onAfterTermExecution(workbookName: string, nodeName: string, callback: (output: Record~string, any~) => void) void
-        +onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void) void
+        +onNodeDataChanged(workbookName: string, nodeName: string, callback) void
         +dispose() void
         -transpile()
-        -sanitize()
+        -sanitize(js: string) string
+        -callVm(method: string, ...args: any[])
     }
+
+    class Scope {
+        -handles: QuickJSHandle[]
+        +manage(handle: T) T
+        +dispose() void
+    }
+
+    OpenModelTSEngine "1" *-- "1" QuickJSContext : owns
+    OpenModelTSEngine ..> Scope : manages memory
+    OpenModelTSEngine ..> ts_morph : transpiles
 ```
 
-### `class OpenModelTSEngine`
+## Behavioral Diagram
 
-#### `constructor(options?: EngineOptions)`
-
-Initializes a new instance of the engine.
-
-- `options.debug`: (Optional) Enable verbose logging of transpilation and VM steps.
-
-#### `async loadProject(entryPoints: string[] | Record<string, string>): Promise<void>`
-
-Transpiles the provided TypeScript files and prepares the internal JavaScript bundle.
-
-- `entryPoints`:
-    - **Node/Deno:** An array of file paths.
-    - **Browser/Virtual:** A record mapping virtual file paths to source code strings (e.g., `{ "/main.ts": "..." }`).
-- The engine resolves dependencies within the provided virtual or physical scope and emits a unified JavaScript string
-  directly to memory.
-
-#### `async boot(): Promise<void>`
-
-Initializes the QuickJS environment and evaluates the prepared JavaScript bundle. Must be called before `execute`.
-
-#### `execute<T = any>(functionName: string, ...args: any[]): T`
-
-Calls a global function defined in the loaded project.
-
-- `functionName`: The name of the function to invoke.
-- `args`: Arguments to pass to the function. Complex objects are serialized via JSON.
-- Returns the result of the function call, deserialized from the VM.
-
-#### `mutate<T>(nodeName: string, value: T): void`
-
-Host-side trigger to update the payload of an input node. This explicitly injects new external data into the sandboxed
-environment and initiates the **Push Phase** (invalidation).
-
-- `nodeName`: The exact identifier of the node within the `TRACE_STORE` (e.g., `'inputVariables'`).
-- `value`: The new, raw data payload to assign to this node's output trace. The shape of `value` **must exactly match**
-  the expected output shape of the node being mutated. The engine serializes this `value` to JSON and sends it into the
-  VM, bypassing the node's original evaluator function to substitute its result directly.
-
-#### `executeWorkbook(workbookName: string, nodeName?: string): Record<string, any>`
-
-Evaluates a specific workbook.
-
-- `workbookName`: The name of the workbook thunk to execute.
-- `nodeName`: (Optional) The specific node to pull. If omitted, performs a "Full Pull" on all nodes.
-- **Returns:** A `Record<string, any>` containing results for **all** nodes defined in the workbook.
-    - If `nodeName` is provided, it returns the requested result plus any existing cached results for other nodes.
-    - Nodes that haven't been evaluated yet will be `undefined` in the record.
-
-### Event Listener Methods (Under Design)
-
-The `OpenModelTSEngine` provides asynchronous event listeners to bridge the VM execution lifecycle back to the Host
-Environment.
-
-*Architectural Note: These methods represent the state-of-the-art eventing design currently being finalized.*
-
-####
-
-`onBeforeNodeExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void`
-
-- **Purpose:** Intercepts the execution flow immediately before a pure calculation `@FunctionNode` evaluates.
-- **Payload (`input`):** The fully resolved dependency object (arguments) that will be passed to the node's function.
-- **Use Case:** Profiling execution start times, debugging dependency resolution, or triggering "loading" states in the
-  UI for heavy formulas.
-
-####
-
-`onAfterNodeExecution(workbookName: string, nodeName: string, callback: (output: Record<string, any>) => void): void`
-
-- **Purpose:** Intercepts the execution flow immediately after a pure calculation `@FunctionNode` evaluates
-  successfully.
-- **Payload (`output`):** The resulting named output object produced by the node.
-- **Use Case:** Telemetry, auditing business logic results, or caching intermediate calculation states without binding
-  them directly to UI components.
-
-####
-
-`onBeforeTermExecution(workbookName: string, nodeName: string, callback: (input: Record<string, any>) => void): void`
-
-- **Purpose:** Intercepts the execution flow immediately before a specific term within a `@TermsNode` evaluates.
-- **Payload (`input`):** Usually an empty object, as terms derive their input from the parent container.
-- **Use Case:** Profiling granular term evaluation within complex structures.
-
-####
-
-`onAfterTermExecution(workbookName: string, nodeName: string, callback: (output: any) => void): void`
-
-- **Purpose:** Intercepts the execution flow immediately after a specific term within a `@TermsNode` evaluates.
-- **Payload (`output`):** The resulting data (scalar or object) produced by the term.
-- **Use Case:** Monitoring the fine-grained data flow of individual terms.
-
-#### `onNodeDataChanged(workbookName: string, nodeName: string, callback: (data: any) => void): void`
-
-- **Purpose:** The primary bridge for UI reactivity. Triggered when a Sink Node (`@ChartNode`, `@OutputNode`)
-  receives new upstream data or an `@InputNode` is updated.
-- **Payload (`data`):** The raw data ready for visualization or UI consumption.
-- **Use Case:** Triggering state updates in the Host Application (e.g., React `setState`) to re-render charts, tables,
-  or update input forms dynamically.
-
----
-
-### Strategy & Reasoning: The `mutate` API
-
-The `mutate` method is the critical communication bridge for reacting to user input in the Host Environment without
-tearing down the VM or re-transpiling the model.
-
-**Why does it accept exactly `value: T`?**
-The Host-side engine should remain entirely agnostic to the internal abstractions of specific node implementations (such
-as wrapping arrays into `{ rows }` structures). By mandating that `mutate` receives the exact data structure expected by
-the node's dependents, we decouple the host engine from the domain framework logic. The inner `mutateInput` framework
-function directly overwrites the cached output of the target node in the `TRACE_STORE` with the provided `value`.
-
----
-
-## Execution Strategy: In-Memory (No-FS) Operations
-
-To ensure compatibility with modern browsers (Chrome, Edge, Safari) and restricted environments, the `OpenModelTSEngine`
-operates entirely in memory.
-
-### 1. Virtual File System (VFS) Transpilation
-
-The engine uses `ts-morph` with an in-memory file system. This allows it to:
-
-- Resolve imports between virtual files without hitting the disk.
-- Emit a single JavaScript bundle as a string via `emitToMemory()`.
-- Completely avoid the overhead and security constraints of temporary file creation (`tmp/`).
-
-### 2. Streamlined Evaluation
-
-Once the JS bundle is generated, it is passed directly to `vm.evalCode(jsCode)`. This string-based transfer is the only
-bridge required to bootstrap the sandboxed environment.
-
-```mermaid
-graph LR
-    A[TS Source Map] --> B[ts-morph VFS]
-    B --> C[Memory-only Emit]
-    C --> D[JS String Bundle]
-    D --> E[VM evalCode]
-    E --> F[Reactive DAG Active]
-```
-
----
-
-## Reactivity & Execution Strategy
-
-To maintain pure model definitions while enabling high-performance updates, the engine implements a **Hybrid Pull/Push
-Reactivity** model (Transparent Reactivity).
-
-### Behavioral Diagrams
-
-**Pull Phase: DAG Discovery & Execution**
+### Lifecycle: From Source to Execution
 
 ```mermaid
 sequenceDiagram
     participant Host
     participant Engine
-    participant VM
-    participant Framework
-    Host ->> Engine: execute("eval_myWorkbook", "renderChart")
-    Engine ->> VM: callVm("eval_myWorkbook", ...)
-    VM ->> Framework: Invoke node logic
-    Framework -->> Framework: Check DAG for staleness
-    Framework -->> Framework: Pull dependencies (if stale or undiscovered)
-    Framework -->> VM: Return JSON result
-    VM -->> Engine: Dump native handle to Host
-    Engine -->> Host: Deserialize and return T
+    participant VFS as ts-morph VFS
+    participant VM as QuickJS VM
+
+    Host->>Engine: loadProject(sources)
+    Engine->>VFS: Create source files
+    VFS->>Engine: Emit JS Bundle (Memory)
+    Engine->>Engine: sanitize(js)
+    Host->>Engine: boot()
+    Engine->>VM: Inject bridges (console, emitEvent)
+    Engine->>VM: evalCode(sanitizedJs)
+    Host->>Engine: executeWorkbook("MyWorkbook")
+    Engine->>VM: callVm("evalWorkbook", "MyWorkbook")
+    VM-->>Engine: JSON results
+    Engine-->>Host: Typed Data
 ```
 
-**Push Phase: Invalidation**
+## Components
 
-```mermaid
-sequenceDiagram
-    participant Host
-    participant Engine
-    participant VM
-    participant Framework
-    Host ->> Engine: mutate("inputVariables", { loanAmount: 100000 })
-    Engine ->> VM: callVm("mutateInput", "inputVariables", newPayload)
-    VM ->> Framework: Update TRACE_STORE output
-    Framework -->> Framework: invalidateDownstream(nodeName) (stale = true)
-    Framework -->> VM: return
-    VM -->> Engine: success
-    Engine -->> Host: void
-```
+### Transpiler (ts-morph)
+Manages the in-memory compilation of TypeScript. It resolves internal dependencies and produces a unified JavaScript bundle optimized for the VM.
 
-### 1. The Pull Phase (DAG Discovery)
+### Sanitizer
+A regex-based post-processor that transforms standard TypeScript/JavaScript output into a "flat" format compatible with the VM's global scope (e.g., converting `export const` to `var`).
 
-The first execution of any output node (e.g., a ChartNode or OutputNode) triggers a "Discovery Pull":
+### VM Bridge (QuickJS)
+The interface layer that manages `QuickJSHandle` lifecycles through a `Scope` class, ensuring no memory leaks occur during Host $\leftrightarrow$ VM transitions.
 
-- **Transparent Tracking**: Uses "Call Stack Interception" via a global `ACTIVE_EVALUATING_NODE` pointer.
-- **DAG Construction**: As nodes are invoked, the framework automatically maps forward edges (Source $\rightarrow$
-  Dependent) in a `FORWARD_EDGES` registry.
-- **Memoization**: Results are cached in `TRACE_STORE` to avoid redundant calculations.
+### Event Handler
+Captures `__emitEvent` calls from the VM and routes them to registered Host-side listeners, enabling real-time updates for UI components.
 
-### 2. The Push Phase (Invalidation)
+## API Documentation
 
-When data changes via `mutate()`, the engine pushes a "Stale" signal:
+### Initialization & Lifecycle
+- **`constructor(options?: EngineOptions)`**: Initializes the engine. `debug` option enables verbose logging.
+- **`loadProject(entryPoints: Record<string, string>)`**: Transpiles and prepares the VM bundle.
+- **`boot()`**: Bootstraps the QuickJS environment and evaluates the project code.
+- **`dispose()`**: Cleans up VM resources and handles.
 
-- **Fast Invalidation**: Flips a `stale: true` flag forward through the `FORWARD_EDGES` graph ($O(V+E)$ traversal).
-- **Lazy Re-evaluation**: No business logic is executed during the push phase; nodes are merely marked for future
-  calculation.
+### Execution
+- **`execute<T>(functionName: string, ...args: any[]): T`**: Invokes a global VM function.
+- **`executeWorkbook(workbookName: string, nodeName?: string)`**: Executes a specific workbook or node. Uses `VmRef` internally.
+- **`mutate<T>(nodeName: string, value: T)`**: Updates an `@InputNode` and triggers invalidation.
 
-### 3. Targeted Re-evaluation
-
-Subsequent host requests for data (Pulls) only execute nodes marked as `stale`. This ensures that only the minimal
-required path of the DAG is recomputed.
-
-## Internal Sanitization Rules
-
-To ensure compatibility with the flat global scope of the VM, the engine applies the following transformations:
-
-- Removal of `"use strict";` directives.
-- Conversion of `const TRACE_STORE` to `var` for global access if necessary.
-- Removal of `export` and `import` statements.
-- Removal of CommonJS artifacts (`require`, `exports`, `Object.defineProperty`).
-- Stripping of module prefixes generated by the TypeScript compiler (e.g., `(0, bindings_ts_1.FunctionNode)` becomes
-  `FunctionNode`).
-
-## Example Usage
-
-### 1. Initialization and Initial Pull
-
-```typescript
-const engine = new OpenModelTSEngine();
-
-// Load from memory (Browser-friendly)
-await engine.loadProject({
-    "/main.ts": "import { FunctionNode } from './bindings'; ...",
-    "/bindings.ts": "..."
-});
-
-await engine.boot();
-
-// Initial evaluation: Builds the DAG and returns data
-const initialTable = engine.execute("eval_myWorkbook", "renderLoanScheduleTable");
-console.log("Initial Rows:", initialTable.length);
-```
-
-### 2. Reactive Mutation (Push Phase)
-
-```typescript
-// Update an input variable - this triggers the Push (Invalidation) Phase
-engine.mutate("inputVariables", {
-    loanAmount: 150000, // Changed from 100000
-    interestRate: 0.05,
-    loanTerm: 30
-});
-
-// Targeted Pull: Only re-calculates the stale path
-const updatedTable = engine.execute("eval_myWorkbook", "renderLoanScheduleTable");
-console.log("Updated Rows:", updatedTable.length);
-
-engine.dispose();
-```
-
-## Dependencies
-
-- `ts-morph`: For TypeScript transpilation.
-- `quickjs-emscripten`: For the WASM-based JS VM.
-- `deno.land/std/path`: For path resolution.
+### Event Listeners
+- **`onNodeDataChanged(workbook, node, callback)`**: Triggered when a node's data is updated (Sink Nodes or Inputs).
+- **`onBeforeNodeExecution(workbook, node, callback)`**: Triggered before a node calculates.
+- **`onAfterNodeExecution(workbook, node, callback)`**: Triggered after a node calculates.
+- **`onBeforeTermExecution(workbook, node, callback)`**: Triggered before a term in a `TermsSet` calculates.
+- **`onAfterTermExecution(workbook, node, callback)`**: Triggered after a term in a `TermsSet` calculates.
