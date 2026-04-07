@@ -1,9 +1,9 @@
-import {FileTSProject} from '../FileTSProject.js';
+import {LocalTSProject} from '../LocalTSProject.js';
 import {writeFileSync, mkdirSync, rmSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 
-describe('FileTSProject', () => {
+describe('LocalTSProject', () => {
     let testDir: string;
 
     beforeEach(() => {
@@ -23,7 +23,7 @@ describe('FileTSProject', () => {
         writeFileSync(join(testDir, 'package.json'), JSON.stringify(pkg));
         writeFileSync(join(testDir, 'src/main.ts'), 'export const x = 1;');
 
-        const project = new FileTSProject(testDir);
+        const project = new LocalTSProject(testDir);
         await project.load();
         const js = project.emitJs();
 
@@ -39,7 +39,7 @@ describe('FileTSProject', () => {
         writeFileSync(pkgPath, JSON.stringify(pkg));
         writeFileSync(join(testDir, 'lib/core.ts'), 'export const core = true;');
 
-        const project = new FileTSProject(pkgPath);
+        const project = new LocalTSProject(pkgPath);
         await project.load();
         const js = project.emitJs();
 
@@ -52,7 +52,7 @@ describe('FileTSProject', () => {
             throw new Error(`Archive not found at: ${archivePath}. Run tar -czf first.`);
         }
 
-        const project = new FileTSProject(archivePath);
+        const project = new LocalTSProject(archivePath);
         await project.load();
         const js = project.emitJs();
 

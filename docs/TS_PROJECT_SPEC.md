@@ -15,8 +15,8 @@ in-memory strings, local file systems, or remote archives) and produces a saniti
   project scope (via the `files` array).
 - **Virtual File System (VFS):** All project instances are loaded into an in-memory `ts-morph` environment to ensure
   cross-platform compatibility.
-- **Unified Local Resolution:** `FileTSProject` acts as a polymorphic loader that resolves both raw directory structures
-  and compressed archives using the same manifest logic.
+- **Unified Local Resolution:** `LocalTSProject` acts as a polymorphic loader that resolves both raw directory
+  structures and compressed archives using the same manifest logic.
 
 ## Structural Diagram
 
@@ -35,7 +35,7 @@ classDiagram
         +constructor(sources: Record~string, string~)
     }
 
-    class FileTSProject {
+    class LocalTSProject {
         +constructor(path: string)
         +load() Promise~void~
         -resolveManifest(root: string) PackageJson
@@ -47,15 +47,15 @@ classDiagram
     }
 
     ATSProjectInstance <|-- InlineTSProject
-    ATSProjectInstance <|-- FileTSProject
+    ATSProjectInstance <|-- LocalTSProject
     ATSProjectInstance <|-- WebTarTSProject
 ```
 
 ## Behavioral Diagram
 
-### FileTSProject Resolution Logic
+### LocalTSProject Resolution Logic
 
-The `FileTSProject` employs a hierarchical resolution strategy to identify the project root and the subset of files to
+The `LocalTSProject` employs a hierarchical resolution strategy to identify the project root and the subset of files to
 be included in the transpilation bundle.
 
 ```mermaid
@@ -89,7 +89,7 @@ sanitization logic required to flatten the JS bundle for the QuickJS VM.
 Designed for scenarios where source code is already available as strings. Ideal for browser-based editors or dynamically
 generated models.
 
-### `FileTSProject`
+### `LocalTSProject`
 
 A unified loader for local assets. It follows these rules:
 
@@ -102,13 +102,13 @@ A unified loader for local assets. It follows these rules:
 ### `WebTarTSProject`
 
 Designed for remote runtime execution. It fetches a `.tar.gz` from a URL (e.g., GitHub Releases), extracts it, and then
-follows the same manifest-driven logic as `FileTSProject` to populate the VFS.
+follows the same manifest-driven logic as `LocalTSProject` to populate the VFS.
 
 ## API Documentation
 
 ### The `package.json` Contract
 
-`FileTSProject` and `WebTarTSProject` strictly adhere to the `package.json` fields defined in
+`LocalTSProject` and `WebTarTSProject` strictly adhere to the `package.json` fields defined in
 `OPEN_MODEL_PROJECT_SPEC.md`:
 
 - **`files`**: An array of glob patterns or file paths. Only files matching these patterns are added to the internal
@@ -133,9 +133,9 @@ Tests path: [**tests**](../src/ts-project/__tests__) Module: [ts-project](../src
     - [x] Notify me that the phase is completed and ready for review.
 - [x] **Phase 2: Project Instance Strategies**
     - [x] **Inline Strategy:** Implement `InlineTSProject` to handle `Record<string, string>` memory maps.
-    - [x] **Local Strategy:** Implement `FileTSProject` with hierarchical resolution (Directory -> package.json ->
+    - [x] **Local Strategy:** Implement `LocalTSProject` with hierarchical resolution (Directory -> package.json ->
           Files).
-    - [x] **Archive Strategy:** Add `.tar.gz` support to `FileTSProject` using in-memory decompression.
+    - [x] **Archive Strategy:** Add `.tar.gz` support to `LocalTSProject` using in-memory decompression.
     - [x] **Remote Strategy:** Implement `WebTarTSProject` to fetch and unpack remote releases via URL.
 - [x] **Phase 2 Finalization**
     - [x] Ensure all tests pass and no regressions are introduced.
@@ -155,7 +155,7 @@ Tests path: [**tests**](../src/ts-project/__tests__) Module: [ts-project](../src
     - [x] Notify me that the phase is completed and ready for review.
 - [x] **Phase 4: Validation & Testing**
     - [x] Write Jest unit tests for `InlineTSProject` to verify VFS population.
-    - [x] Write Jest integration tests for `FileTSProject` using mock file systems to verify `package.json` globbing.
+    - [x] Write Jest integration tests for `LocalTSProject` using mock file systems to verify `package.json` globbing.
     - [x] Write Jest tests for `WebTarTSProject` with mocked network responses.
     - [x] **Archive Validation:** Use a `.tar.gz` archive of the existing `demo/loan-schedule` project to verify
           decompression and manifest-driven loading in both local and web strategies.

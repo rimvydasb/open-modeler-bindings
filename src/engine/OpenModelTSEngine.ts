@@ -160,7 +160,7 @@ export class OpenModelTSEngine {
     }
 
     /**
-     * Calls a global function defined in the loaded project.
+     * Calls a global function defined in the loaded project, or retrieves a global variable.
      */
     execute<T = any>(functionName: string, ...args: any[]): T {
         if (!this.vm) throw new Error('Engine not booted. Call boot() first.');
@@ -193,7 +193,10 @@ export class OpenModelTSEngine {
             const fnHandle = scope.manage(this.vm.getProp(this.vm.global, methodName));
 
             if (this.vm.typeof(fnHandle) !== 'function') {
-                throw new Error(`Method "${methodName}" not found in VM scope`);
+                if (args.length > 0) {
+                    throw new Error(`Cannot call non-function "${methodName}" with arguments`);
+                }
+                return this.vm.dump(fnHandle);
             }
 
             const vmArgs = args.map((arg) => {

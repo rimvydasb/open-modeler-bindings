@@ -29,6 +29,13 @@ export abstract class ATSProjectInstance {
     public abstract load(): Promise<void>;
 
     /**
+     * Manually inject a source file into the virtual project.
+     */
+    public addSourceFile(path: string, content: string): void {
+        this.project.createSourceFile(path, content, {overwrite: true});
+    }
+
+    /**
      * Transpiles the virtual project and returns a sanitized, bundled JavaScript string.
      */
     public emitJs(): string {
@@ -85,6 +92,12 @@ export abstract class ATSProjectInstance {
 
         code = code.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, '');
 
-        return code;
+        // Wrap import.meta and process in a proxy that returns itself for any property access or call
+        const proxyPolyfill =
+            'var __om_proxy = new Proxy(function(){}, { get: () => __om_proxy, apply: () => __om_proxy });\n';
+        code = code.replace(/import\.meta/g, '__om_proxy');
+        code = code.replace(/process/g, '__om_proxy');
+
+        return proxyPolyfill + code;
     }
 }

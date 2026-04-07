@@ -15,7 +15,7 @@ interface PackageJson {
  * A TypeScript project instance sourced from the local filesystem.
  * Supports directory paths, specific package.json files, and .tar.gz archives.
  */
-export class FileTSProject extends ATSProjectInstance {
+export class LocalTSProject extends ATSProjectInstance {
     private readonly path: string;
 
     constructor(path: string) {
