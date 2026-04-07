@@ -1,11 +1,4 @@
-import {
-    Workbook,
-    InputNode,
-    TermsNode,
-    FunctionNode,
-    OutputNode,
-    evalWorkbook,
-} from '@open-modeler-bindings/bindings.js';
+import {Workbook, InputNode, TermsNode, FunctionNode, OutputNode, evalWorkbook} from '@open-modeler-bindings/index.js';
 import {CreditApplication} from './types.ts';
 import {ApplicationTerms, validateApplicationEligibility, validateApplicantEligibility} from './library.ts';
 

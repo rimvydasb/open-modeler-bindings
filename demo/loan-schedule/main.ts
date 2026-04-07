@@ -1,11 +1,4 @@
-import {
-    Workbook,
-    InputNode,
-    FunctionNode,
-    ChartNode,
-    OutputNode,
-    evalWorkbook,
-} from '@open-modeler-bindings/bindings.js';
+import {Workbook, InputNode, FunctionNode, ChartNode, OutputNode, evalWorkbook} from '@open-modeler-bindings/index.js';
 import {calculateMonthlyPayment, generateLoanSchedule} from './library.ts';
 import type {LoanInputs} from './types.ts';
 

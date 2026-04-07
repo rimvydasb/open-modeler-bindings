@@ -1,4 +1,4 @@
-import {InlineTSProject} from '@open-modeler-ts-project/InlineTSProject.js';
+import {InlineTSProject} from '@open-modeler-ts-project/index.js';
 
 describe('InlineTSProject', () => {
     it('should load project from a source map', async () => {

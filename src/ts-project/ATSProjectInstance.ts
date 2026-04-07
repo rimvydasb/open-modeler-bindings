@@ -5,6 +5,7 @@ import {join} from 'node:path';
 import {glob} from 'node:fs/promises';
 import {execSync} from 'node:child_process';
 import {tmpdir} from 'node:os';
+import {IProjectInstance} from '@open-modeler-engine/index.js';
 
 interface PackageJson {
     files?: string[];
@@ -14,8 +15,9 @@ interface PackageJson {
 /**
  * Base class for all TypeScript project instances.
  * Manages the internal ts-morph project and handles the transpilation/sanitization pipeline.
+ * (DDD Infrastructure Layer: Implements the IProjectInstance contract).
  */
-export abstract class ATSProjectInstance {
+export abstract class ATSProjectInstance implements IProjectInstance {
     public project: Project;
 
     constructor() {
@@ -138,7 +140,7 @@ export abstract class ATSProjectInstance {
 
         code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, '$1');
         code = code.replace(/(\w+)\.(\w+)/g, (match, p1, p2) => {
-            if (p1.includes('_ts_') || p1.startsWith('bindings')) return p2;
+            if (p1.includes('_ts_') || p1.startsWith('bindings') || p1.startsWith('index_js')) return p2;
             return match;
         });
 

@@ -1,4 +1,4 @@
-import {ATSProjectInstance} from '@open-modeler-ts-project/ATSProjectInstance.js';
+import {ATSProjectInstance} from '@open-modeler-ts-project/index.js';
 
 class TestProject extends ATSProjectInstance {
     public async load(): Promise<void> {

@@ -1,4 +1,4 @@
-import {TermsSet} from '@open-modeler-bindings/bindings.js';
+import {TermsSet} from '@open-modeler-bindings/index.js';
 import type {Application} from './types.ts';
 
 @TermsSet

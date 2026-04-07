@@ -1,5 +1,5 @@
-import {OpenModelTSEngine} from '@open-modeler-engine/OpenModelTSEngine.js';
-import {LocalTSProject} from '@open-modeler-ts-project/LocalTSProject.js';
+import {OpenModelTSEngine} from '@open-modeler-engine/index.js';
+import {LocalTSProject} from '@open-modeler-ts-project/index.js';
 import {readFileSync} from 'node:fs';
 
 /**

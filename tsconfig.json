@@ -14,12 +14,12 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@open-modeler-bindings/*.js": ["./src/bindings/v1alpha/*.ts"],
-      "@open-modeler-bindings/*": ["./src/bindings/v1alpha/*.ts"],
-      "@open-modeler-engine/*.js": ["./src/engine/*.ts"],
-      "@open-modeler-engine/*": ["./src/engine/*.ts"],
-      "@open-modeler-ts-project/*.js": ["./src/ts-project/*.ts"],
-      "@open-modeler-ts-project/*": ["./src/ts-project/*.ts"]
+      "@open-modeler-bindings/*.js": ["./src/bindings/v1alpha/index.ts"],
+      "@open-modeler-bindings/*": ["./src/bindings/v1alpha/index.ts"],
+      "@open-modeler-engine/*.js": ["./src/engine/index.ts"],
+      "@open-modeler-engine/*": ["./src/engine/index.ts"],
+      "@open-modeler-ts-project/*.js": ["./src/ts-project/index.ts"],
+      "@open-modeler-ts-project/*": ["./src/ts-project/index.ts"]
     },
     "types": ["node", "jest"]
   },

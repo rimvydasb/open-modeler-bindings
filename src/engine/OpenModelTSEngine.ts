@@ -1,10 +1,10 @@
 import {getQuickJS, type QuickJSContext, type QuickJSHandle} from 'quickjs-emscripten';
-import {ATSProjectInstance} from '@open-modeler-ts-project/ATSProjectInstance.js';
+import {IProjectInstance, EngineOptions, VmRef, NodeDataCallback, NodeExecutionCallback, IScope} from './types.js';
 
 /**
  * Manages QuickJS handles for automatic cleanup.
  */
-class Scope {
+class Scope implements IScope {
     private handles: QuickJSHandle[] = [];
 
     manage<T extends QuickJSHandle>(handle: T): T {
@@ -20,28 +20,15 @@ class Scope {
     }
 }
 
-export interface EngineOptions {
-    debug?: boolean;
-}
-
-/**
- * A reference to a variable that already exists in the VM's global scope.
- */
-export interface VmRef {
-    __vm_ref: string;
-}
-
 /**
  * Helper to create a VM reference.
  */
 export const vmRef = (name: string): VmRef => ({__vm_ref: name});
 
-export type NodeDataCallback = (data: any) => void;
-export type NodeExecutionCallback = (payload: Record<string, any>) => void;
-
 /**
  * OpenModel Engine for TypeScript projects.
  * Developed to be working on web browsers.
+ * Acts as the Application Orchestrator (DDD Application Layer).
  */
 export class OpenModelTSEngine {
     private jsCode: string = '';
@@ -60,8 +47,9 @@ export class OpenModelTSEngine {
 
     /**
      * Consumes a pre-bundled and sanitized project instance.
+     * (IoC: Depends on IProjectInstance contract).
      */
-    async loadProject(project: ATSProjectInstance): Promise<void> {
+    async loadProject(project: IProjectInstance): Promise<void> {
         if (this.options.debug) console.log(`[OpenModelTSEngine] Loading project instance...`);
 
         await project.load();
