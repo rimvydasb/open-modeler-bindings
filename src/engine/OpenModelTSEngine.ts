@@ -1,5 +1,5 @@
-import {getQuickJS, QuickJSContext, type QuickJSHandle} from 'quickjs-emscripten';
-import {ATSProjectInstance} from '../ts-project/ATSProjectInstance.js';
+import {getQuickJS, type QuickJSContext, type QuickJSHandle} from 'quickjs-emscripten';
+import {ATSProjectInstance} from '@open-modeler-ts-project/ATSProjectInstance.js';
 
 /**
  * Manages QuickJS handles for automatic cleanup.

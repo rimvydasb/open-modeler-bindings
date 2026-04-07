@@ -1,6 +1,6 @@
 import {describe, it, expect} from '@jest/globals';
-import {OpenModelTSEngine} from '../OpenModelTSEngine.js';
-import {InlineTSProject} from '../../ts-project/InlineTSProject.js';
+import {OpenModelTSEngine} from '@open-modeler-engine/OpenModelTSEngine.js';
+import {InlineTSProject} from '@open-modeler-ts-project/InlineTSProject.js';
 
 describe('OpenModelTSEngine', () => {
     it('evaluates a basic workbook correctly', async () => {

@@ -1,15 +1,6 @@
 import {ATSProjectInstance} from './ATSProjectInstance.js';
-import {readFileSync, existsSync, lstatSync, mkdirSync, rmSync} from 'node:fs';
-import {readFile} from 'node:fs/promises';
+import {existsSync, lstatSync} from 'node:fs';
 import {join, dirname, isAbsolute} from 'node:path';
-import {glob} from 'node:fs/promises';
-import {execSync} from 'node:child_process';
-import {tmpdir} from 'node:os';
-
-interface PackageJson {
-    files?: string[];
-    exports?: string | Record<string, string>;
-}
 
 /**
  * A TypeScript project instance sourced from the local filesystem.
@@ -51,41 +42,5 @@ export class LocalTSProject extends ATSProjectInstance {
         }
 
         await this.loadFromDirectory(projectRoot, packageJsonPath);
-    }
-
-    private async loadFromDirectory(projectRoot: string, packageJsonPath: string): Promise<void> {
-        if (!existsSync(packageJsonPath)) {
-            throw new Error(`package.json not found at: ${packageJsonPath}`);
-        }
-
-        const packageJson: PackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-        const filePatterns = packageJson.files || ['**/*.ts'];
-
-        for (const pattern of filePatterns) {
-            for await (const entry of glob(pattern, {cwd: projectRoot})) {
-                const fullPath = join(projectRoot, entry);
-                const stat = lstatSync(fullPath);
-                if (stat.isFile() && (entry.endsWith('.ts') || entry.endsWith('.json'))) {
-                    const content = await readFile(fullPath, 'utf-8');
-                    this.project.createSourceFile(`/${entry}`, content, {overwrite: true});
-                }
-            }
-        }
-    }
-
-    /**
-     * Extracts .tar.gz into a temporary directory and processes it.
-     */
-    private async loadFromArchive(archivePath: string): Promise<void> {
-        const tempDir = join(tmpdir(), `om-extract-${Date.now()}`);
-        mkdirSync(tempDir, {recursive: true});
-
-        try {
-            execSync(`tar -xzf ${archivePath} -C ${tempDir}`);
-            const packageJsonPath = join(tempDir, 'package.json');
-            await this.loadFromDirectory(tempDir, packageJsonPath);
-        } finally {
-            rmSync(tempDir, {recursive: true, force: true});
-        }
     }
 }

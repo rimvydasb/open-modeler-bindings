@@ -1,31 +1,20 @@
 import {describe, it, expect} from '@jest/globals';
-import {OpenModelTSEngine} from '../../src/engine/OpenModelTSEngine.js';
-import {LocalTSProject} from '../../src/ts-project/LocalTSProject.js';
-import {readFileSync} from 'node:fs';
+import {setupEngine} from './test_utils.js';
 
 describe('Loan Originations Integration Test', () => {
-    async function setupEngine() {
-        const engine = new OpenModelTSEngine();
-        const project = new LocalTSProject('demo/loan-originations');
-        const bindingsContent = readFileSync('src/bindings/v1alpha/bindings.ts', 'utf-8');
-
-        await project.load();
-        project.addSourceFile('/src/bindings/bindings.ts', bindingsContent);
-
-        await engine.loadProject(project);
-        await engine.boot();
-        return engine;
+    async function setupDefaultEngine() {
+        return setupEngine('demo/loan-originations');
     }
 
     it('correctly derives applicant age and eligibility via Engine', async () => {
-        const engine = await setupEngine();
+        const engine = await setupDefaultEngine();
         const results = engine.executeWorkbook('originationsWorkbook', 'renderEligibilityResult');
 
         expect(results.renderEligibilityResult[0].eligible).toBe(true);
     });
 
     it('reacts to input mutations (age and amount limits) in the VM', async () => {
-        const engine = await setupEngine();
+        const engine = await setupDefaultEngine();
 
         // 1. Initial check
         const results1 = engine.executeWorkbook('originationsWorkbook', 'renderEligibilityResult');

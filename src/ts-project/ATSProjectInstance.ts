@@ -1,4 +1,15 @@
 import {Project} from 'ts-morph';
+import {readFileSync, existsSync, lstatSync, mkdirSync, rmSync} from 'node:fs';
+import {readFile} from 'node:fs/promises';
+import {join} from 'node:path';
+import {glob} from 'node:fs/promises';
+import {execSync} from 'node:child_process';
+import {tmpdir} from 'node:os';
+
+interface PackageJson {
+    files?: string[];
+    exports?: string | Record<string, string>;
+}
 
 /**
  * Base class for all TypeScript project instances.
@@ -16,7 +27,9 @@ export abstract class ATSProjectInstance {
                 alwaysStrict: false,
                 baseUrl: '/',
                 paths: {
-                    '@open-modeler-bindings/*': ['/src/bindings/*.ts'],
+                    '@open-modeler-bindings/*': ['/src/bindings/v1alpha/*.ts'],
+                    '@open-modeler-engine/*': ['/src/engine/*.ts'],
+                    '@open-modeler-ts-project/*': ['/src/ts-project/*.ts'],
                 },
             },
             useInMemoryFileSystem: true,
@@ -33,6 +46,45 @@ export abstract class ATSProjectInstance {
      */
     public addSourceFile(path: string, content: string): void {
         this.project.createSourceFile(path, content, {overwrite: true});
+    }
+
+    /**
+     * Common method to load a project from a directory following package.json manifest.
+     */
+    protected async loadFromDirectory(projectRoot: string, packageJsonPath: string): Promise<void> {
+        if (!existsSync(packageJsonPath)) {
+            throw new Error(`package.json not found at: ${packageJsonPath}`);
+        }
+
+        const packageJson: PackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+        const filePatterns = packageJson.files || ['**/*.ts'];
+
+        for (const pattern of filePatterns) {
+            for await (const entry of glob(pattern, {cwd: projectRoot})) {
+                const fullPath = join(projectRoot, entry);
+                const stat = lstatSync(fullPath);
+                if (stat.isFile() && (entry.endsWith('.ts') || entry.endsWith('.json'))) {
+                    const content = await readFile(fullPath, 'utf-8');
+                    this.project.createSourceFile(`/${entry}`, content, {overwrite: true});
+                }
+            }
+        }
+    }
+
+    /**
+     * Common method to extract .tar.gz into a temporary directory and process it.
+     */
+    protected async loadFromArchive(archivePath: string, prefix: string = 'om-extract'): Promise<void> {
+        const tempDir = join(tmpdir(), `${prefix}-${Date.now()}`);
+        mkdirSync(tempDir, {recursive: true});
+
+        try {
+            execSync(`tar -xzf ${archivePath} -C ${tempDir}`);
+            const packageJsonPath = join(tempDir, 'package.json');
+            await this.loadFromDirectory(tempDir, packageJsonPath);
+        } finally {
+            rmSync(tempDir, {recursive: true, force: true});
+        }
     }
 
     /**

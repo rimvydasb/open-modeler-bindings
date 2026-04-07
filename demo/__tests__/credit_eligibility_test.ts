@@ -1,24 +1,13 @@
 import {describe, it, expect} from '@jest/globals';
-import {OpenModelTSEngine} from '../../src/engine/OpenModelTSEngine.js';
-import {LocalTSProject} from '../../src/ts-project/LocalTSProject.js';
-import {readFileSync} from 'node:fs';
+import {setupEngine} from './test_utils.js';
 
 describe('Credit Eligibility Integration Test', () => {
-    async function setupEngine() {
-        const engine = new OpenModelTSEngine();
-        const project = new LocalTSProject('demo/credit-eligibility');
-        const bindingsContent = readFileSync('src/bindings/v1alpha/bindings.ts', 'utf-8');
-
-        await project.load();
-        project.addSourceFile('/src/bindings/bindings.ts', bindingsContent);
-
-        await engine.loadProject(project);
-        await engine.boot();
-        return engine;
+    async function setupDefaultEngine() {
+        return setupEngine('demo/credit-eligibility');
     }
 
     it('evaluates complex credit application correctly via Engine', async () => {
-        const engine = await setupEngine();
+        const engine = await setupDefaultEngine();
         const results = engine.executeWorkbook('CreditEligibilityModel');
 
         expect(results.applicationInput.rows.requestedAmount).toBe(50000);
@@ -37,7 +26,7 @@ describe('Credit Eligibility Integration Test', () => {
     });
 
     it('reacts to changes in individual applicants in the VM', async () => {
-        const engine = await setupEngine();
+        const engine = await setupDefaultEngine();
 
         // Update Bob's score to be eligible
         const INITIAL_APPLICATION = engine.execute('INITIAL_APPLICATION');
@@ -55,7 +44,7 @@ describe('Credit Eligibility Integration Test', () => {
     });
 
     it('fails application when amount exceeds limit in the VM', async () => {
-        const engine = await setupEngine();
+        const engine = await setupDefaultEngine();
 
         const INITIAL_APPLICATION = engine.execute('INITIAL_APPLICATION');
         const updatedApp = JSON.parse(JSON.stringify(INITIAL_APPLICATION));

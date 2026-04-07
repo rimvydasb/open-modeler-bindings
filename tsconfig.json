@@ -14,7 +14,9 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@open-modeler-bindings/*": ["./src/bindings/*.ts"]
+      "@open-modeler-bindings/*": ["./src/bindings/v1alpha/*.ts"],
+      "@open-modeler-engine/*": ["./src/engine/*.ts"],
+      "@open-modeler-ts-project/*": ["./src/ts-project/*.ts"]
     },
     "types": ["node", "jest"]
   },

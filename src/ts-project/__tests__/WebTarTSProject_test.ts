@@ -1,4 +1,4 @@
-import {WebTarTSProject} from '../WebTarTSProject.js';
+import {WebTarTSProject} from '@open-modeler-ts-project/WebTarTSProject.js';
 import {readFileSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 

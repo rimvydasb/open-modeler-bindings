@@ -1,4 +1,4 @@
-import {LocalTSProject} from '../LocalTSProject.js';
+import {LocalTSProject} from '@open-modeler-ts-project/LocalTSProject.js';
 import {writeFileSync, mkdirSync, rmSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
