@@ -1,4 +1,6 @@
-# Service 3: AST Parsing — Architecture
+# AST Parsing Specification
+
+[project-ast](../../src/project-ast)
 
 ## Overview
 
