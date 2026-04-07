@@ -5,7 +5,7 @@ import {
     FunctionNode,
     OutputNode,
     evalWorkbook,
-} from '@open-modeler-bindings/v1alpha/bindings';
+} from '@open-modeler-bindings/bindings.js';
 import {CreditApplication} from './types.ts';
 import {ApplicationTerms, validateApplicationEligibility, validateApplicantEligibility} from './library.ts';
 

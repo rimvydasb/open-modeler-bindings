@@ -1,4 +1,4 @@
-import {TermsSet} from '@open-modeler-bindings/v1alpha/bindings';
+import {TermsSet} from '@open-modeler-bindings/bindings.js';
 import {Applicant, CreditApplication, EligibilityResult} from './types.ts';
 
 @TermsSet

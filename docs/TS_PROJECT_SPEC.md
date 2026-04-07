@@ -1,4 +1,4 @@
-# TypeScript Project Instance Specification
+# TS Project Instance Specification
 
 ## Overview
 

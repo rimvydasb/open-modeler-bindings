@@ -7,6 +7,61 @@ within a QuickJS WebAssembly (WASM) virtual machine. It provides a reactive envi
 (Workbooks) are defined using standard TypeScript decorators, enabling transparent dependency tracking and efficient
 updates through a Directed Acyclic Graph (DAG).
 
+## Modules Dependency Diagram
+
+The system is organized into decoupled modules, utilizing path aliases for clear architectural boundaries.
+
+```mermaid
+graph TD
+    subgraph Engine_Module [Execution Engine: @open-modeler-engine]
+        Engine[OpenModelTSEngine]
+    end
+
+    subgraph Project_Module [TS Project: @open-modeler-ts-project]
+        ATS[ATSProjectInstance]
+        Local[LocalTSProject]
+        Web[WebTarTSProject]
+        Inline[InlineTSProject]
+    end
+
+    subgraph Bindings_Module [Reactivity Bindings: @open-modeler-bindings]
+        Decorators["Decorators (@Workbook, @TermsSet, ...)"]
+        Core["Core Framework (evalWorkbook, mutateInput)"]
+    end
+
+    subgraph External_Deps [External Components]
+        TSMorph["ts-morph (VFS & Transpilation)"]
+        QuickJS["quickjs-emscripten (WASM VM)"]
+    end
+
+    subgraph Demo_Projects [Demo Projects]
+        Demos["loan-schedule, credit-eligibility, etc."]
+    end
+
+    %% Dependencies
+    Engine -->|Consumes| ATS
+    Engine -->|Orchestrates| QuickJS
+
+    ATS --> TSMorph
+    Local -->|Extends| ATS
+    Web -->|Extends| ATS
+    Inline -->|Extends| ATS
+
+    Project_Module -.->|Bundles into VM| Bindings_Module
+
+    Demo_Projects -->|Uses| Decorators
+    Demo_Projects -.->|Loaded by| Engine
+```
+
+### Module Aliases
+
+To maintain a clean separation of concerns and simplify imports, the following path aliases are used throughout the
+project:
+
+- **`@open-modeler-bindings/*`**: Points to the reactivity framework core (`src/bindings/v1alpha/`).
+- **`@open-modeler-engine/*`**: Points to the host-side execution engine (`src/engine/`).
+- **`@open-modeler-ts-project/*`**: Points to the project sourcing and bundling logic (`src/ts-project/`).
+
 ## Business Terminology & Mental Model
 
 - **Host Environment:** The outer runtime (Node.js, Browser) managing the UI and the lifecycle of the engine.
@@ -57,17 +112,26 @@ The interaction between the Host and the VM follows a strict bridge pattern for 
 sequenceDiagram
     participant Host as Host Application
     participant Engine as OpenModelTSEngine
+    participant Project as TSProjectInstance
     participant VM as QuickJS VM / Framework
-    Note over Host, VM: Initial Setup
-    Host ->> Engine: loadProject(TSProjectInstance)
-    Engine ->> VM: Evaluate Bundle (pre-sanitized)
+
+    Note over Host, VM: 1. Preparation
+    Host ->> Engine: loadProject(Project)
+    Engine ->> Project: load() & emitJs()
+    Project -->> Engine: Bundled & Sanitized JS
+
+    Note over Host, VM: 2. Initialization
     Host ->> Engine: boot()
-    Note over Host, VM: Execution (Pull)
+    Engine ->> VM: Create Context & Inject Bridges
+    Engine ->> VM: Evaluate JS Bundle
+
+    Note over Host, VM: 3. Execution (Pull)
     Host ->> Engine: executeWorkbook("MyWorkbook")
     Engine ->> VM: callVm("evalWorkbook")
     VM -->> Engine: Serialized Results
     Engine -->> Host: Typed Data
-    Note over Host, VM: Interaction (Push)
+
+    Note over Host, VM: 4. Interaction (Push)
     Host ->> Engine: mutate("inputA", value)
     Engine ->> VM: callVm("mutateInput")
     VM -->> VM: Invalidate DAG

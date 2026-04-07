@@ -16,7 +16,7 @@ interface PackageJson {
  * Manages the internal ts-morph project and handles the transpilation/sanitization pipeline.
  */
 export abstract class ATSProjectInstance {
-    protected project: Project;
+    public project: Project;
 
     constructor() {
         this.project = new Project({

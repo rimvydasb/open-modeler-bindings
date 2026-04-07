@@ -5,7 +5,7 @@ import {
     ChartNode,
     OutputNode,
     evalWorkbook,
-} from '@open-modeler-bindings/v1alpha/bindings';
+} from '@open-modeler-bindings/bindings.js';
 import {calculateMonthlyPayment, generateLoanSchedule} from './library.ts';
 import type {LoanInputs} from './types.ts';
 

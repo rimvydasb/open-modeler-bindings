@@ -162,12 +162,12 @@ describe('OpenModelTSEngine', () => {
         let beforeCalled = false;
         let afterCalled = false;
 
-        engine.onBeforeNodeExecution('myWorkbook', 'calculateMonthlyPayment', (input) => {
+        engine.onBeforeNodeExecution('myWorkbook', 'calculateMonthlyPayment', (input: any) => {
             beforeCalled = true;
             expect(input.principal).toBe(1000);
         });
 
-        engine.onAfterNodeExecution('myWorkbook', 'calculateMonthlyPayment', (output) => {
+        engine.onAfterNodeExecution('myWorkbook', 'calculateMonthlyPayment', (output: any) => {
             afterCalled = true;
             expect(output.monthlyPayment).toBe(100);
         });
@@ -211,11 +211,11 @@ describe('OpenModelTSEngine', () => {
         let beforeCalled = false;
         let afterCalled = false;
 
-        engine.onBeforeTermExecution('myWorkbook', 'application.age', (input) => {
+        engine.onBeforeTermExecution('myWorkbook', 'application.age', (input: any) => {
             beforeCalled = true;
         });
 
-        engine.onAfterTermExecution('myWorkbook', 'application.age', (output) => {
+        engine.onAfterTermExecution('myWorkbook', 'application.age', (output: any) => {
             afterCalled = true;
             expect(output).toBe(30);
         });
@@ -259,7 +259,7 @@ describe('OpenModelTSEngine', () => {
         await engine.boot();
 
         let tableData: any = null;
-        engine.onNodeDataChanged('myWorkbook', 'renderLoanScheduleTable', (data) => {
+        engine.onNodeDataChanged('myWorkbook', 'renderLoanScheduleTable', (data: any) => {
             tableData = data;
         });
 

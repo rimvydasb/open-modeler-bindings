@@ -8,7 +8,7 @@ import {
     mutateInput,
     validateWorkbook,
     Workbook,
-} from '@open-modeler-bindings/v1alpha/bindings';
+} from '@open-modeler-bindings/bindings.js';
 
 describe('Framework Reactivity (bindings.ts)', () => {
     it('evalWorkbook without nodeName evaluates all nodes', () => {

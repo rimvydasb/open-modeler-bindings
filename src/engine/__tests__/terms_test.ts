@@ -8,7 +8,7 @@ import {
     TRACE_STORE,
     clearTrace,
     FrameworkEvent,
-} from '@open-modeler-bindings/v1alpha/bindings';
+} from '@open-modeler-bindings/bindings.js';
 
 @TermsSet
 class SubTerm {
