@@ -1,5 +1,5 @@
-import {Project} from 'ts-morph';
 import {getQuickJS, QuickJSContext, type QuickJSHandle} from 'quickjs-emscripten';
+import {ATSProjectInstance} from '../ts-project/ATSProjectInstance.js';
 
 /**
  * Manages QuickJS handles for automatic cleanup.
@@ -44,7 +44,6 @@ export type NodeExecutionCallback = (payload: Record<string, any>) => void;
  * Developed to be working on web browsers.
  */
 export class OpenModelTSEngine {
-    private project: Project;
     private jsCode: string = '';
     private vm: QuickJSContext | null = null;
     private options: EngineOptions;
@@ -57,87 +56,20 @@ export class OpenModelTSEngine {
 
     constructor(options: EngineOptions = {}) {
         this.options = options;
-        this.project = new Project({
-            compilerOptions: {
-                target: 7, // ESNext
-                module: 0, // None
-                lib: ['esnext'],
-                alwaysStrict: false,
-                baseUrl: '/',
-                paths: {
-                    '@open-modeler-bindings/*': ['/src/bindings/*.ts'],
-                },
-            },
-            useInMemoryFileSystem: true,
-        });
     }
 
     /**
-     * Transpiles the provided TypeScript files and prepares the internal JavaScript bundle.
+     * Consumes a pre-bundled and sanitized project instance.
      */
-    async loadProject(entryPoints: Record<string, string>): Promise<void> {
-        for (const [path, content] of Object.entries(entryPoints)) {
-            if (this.options.debug) console.log(`[OpenModelTSEngine] Adding virtual source file: ${path}`);
-            this.project.createSourceFile(path, content, {overwrite: true});
-        }
+    async loadProject(project: ATSProjectInstance): Promise<void> {
+        if (this.options.debug) console.log(`[OpenModelTSEngine] Loading project instance...`);
 
-        const emitResult = this.project.emitToMemory();
-        const files = emitResult.getFiles();
-        if (this.options.debug) console.log(`[OpenModelTSEngine] Emitted ${files.length} files to memory.`);
-
-        let frameworkJs = '';
-        let otherJs = '';
-
-        for (const file of files) {
-            let text = file.text;
-            if (this.options.debug) console.log(`[OpenModelTSEngine] Processing emitted file: ${file.filePath}`);
-            text = this.sanitize(text);
-
-            // Prioritize framework/bindings to ensure they are defined before use
-            if (file.filePath.endsWith('bindings.js') || file.filePath.endsWith('reactive_graph.js')) {
-                frameworkJs += `\n// --- ${file.filePath} ---\n` + text;
-            } else {
-                otherJs += `\n// --- ${file.filePath} ---\n` + text;
-            }
-        }
-
-        this.jsCode = 'const exports = {};\nvar global = globalThis;\n' + frameworkJs + otherJs;
+        await project.load();
+        this.jsCode = project.emitJs();
 
         if (this.options.debug) {
-            console.log('[OpenModelTSEngine] Project transpiled successfully. Total length:', this.jsCode.length);
+            console.log('[OpenModelTSEngine] Project loaded successfully. Total length:', this.jsCode.length);
         }
-    }
-
-    private sanitize(js: string): string {
-        let code = js;
-        code = code.replace(/^"use strict";/gm, '');
-
-        // Replace 'export const', 'export let', 'export function', etc. with global declarations
-        code = code.replace(/^export const /gm, 'var ');
-        code = code.replace(/^export let /gm, 'var ');
-        code = code.replace(/^export function /gm, 'function ');
-        code = code.replace(/^export class /gm, 'var ');
-
-        code = code.replace(/^const TRACE_STORE =/gm, 'var TRACE_STORE =');
-        code = code.replace(/^export /gm, '');
-        code = code.replace(/^import .* from .*$/gm, '');
-        code = code.replace(/^const .* = require\(.*\);$/gm, '');
-        code = code.replace(/^Object\.defineProperty\(exports,.*$/gm, '');
-        code = code.replace(/^exports\..* = void 0;.*$/gm, '');
-
-        // Convert exports.foo = ... to globalThis.foo = ...
-        code = code.replace(/exports\.(\w+) =/gm, 'globalThis.$1 =');
-        code = code.replace(/exports\./gm, '');
-
-        code = code.replace(/\(\d+,\s*\w+\.([^)]+)\)/g, '$1');
-        code = code.replace(/(\w+)\.(\w+)/g, (match, p1, p2) => {
-            if (p1.includes('_ts_') || p1.startsWith('bindings')) return p2;
-            return match;
-        });
-
-        code = code.replace(/if\s*\(import\.meta\.main\)\s*\{[\s\S]*?\n\}/g, '');
-
-        return code;
     }
 
     /**

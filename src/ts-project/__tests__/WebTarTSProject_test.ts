@@ -10,7 +10,7 @@ describe('WebTarTSProject', () => {
     });
 
     it('should fetch and load project from a .tar.gz archive', async () => {
-        const archivePath = join(process.cwd(), 'demo-loan-schedule.tar.gz');
+        const archivePath = join(process.cwd(), 'tmp/demo-loan-schedule.tar.gz');
         if (!existsSync(archivePath)) {
             throw new Error(`Archive not found at: ${archivePath}. Run tar -czf first.`);
         }

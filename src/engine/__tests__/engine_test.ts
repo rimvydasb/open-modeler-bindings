@@ -1,10 +1,11 @@
 import {describe, it, expect} from '@jest/globals';
-import {OpenModelTSEngine} from '../OpenModelTSEngine.ts';
+import {OpenModelTSEngine} from '../OpenModelTSEngine.js';
+import {InlineTSProject} from '../../ts-project/InlineTSProject.js';
 
 describe('OpenModelTSEngine', () => {
     it('evaluates a basic workbook correctly', async () => {
         const engine = new OpenModelTSEngine();
-        await engine.loadProject({
+        const project = new InlineTSProject({
             '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function FunctionNode(target, context) { return target; }
@@ -21,6 +22,7 @@ describe('OpenModelTSEngine', () => {
                 }
             `,
         });
+        await engine.loadProject(project);
         await engine.boot();
 
         const results = engine.executeWorkbook('myWorkbook', 'run');
@@ -29,7 +31,7 @@ describe('OpenModelTSEngine', () => {
 
     it('supports reactivity via mutate()', async () => {
         const engine = new OpenModelTSEngine();
-        await engine.loadProject({
+        const project = new InlineTSProject({
             '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function InputNode(target, context) {
@@ -65,6 +67,7 @@ describe('OpenModelTSEngine', () => {
                 }
             `,
         });
+        await engine.loadProject(project);
         await engine.boot();
 
         // 1. Initial execution
@@ -81,7 +84,7 @@ describe('OpenModelTSEngine', () => {
 
     it('isolated execution across multiple workbooks', async () => {
         const engine = new OpenModelTSEngine();
-        await engine.loadProject({
+        const project = new InlineTSProject({
             '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function FunctionNode(target, context) { return target; }
@@ -109,6 +112,7 @@ describe('OpenModelTSEngine', () => {
                 }
             `,
         });
+        await engine.loadProject(project);
         await engine.boot();
 
         const resA = engine.executeWorkbook('workbookA', 'calcA');
@@ -121,7 +125,7 @@ describe('OpenModelTSEngine', () => {
 
     it('emits lifecycle events correctly', async () => {
         const engine = new OpenModelTSEngine();
-        await engine.loadProject({
+        const project = new InlineTSProject({
             '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function InputNode(target, context) { return target; }
@@ -152,6 +156,7 @@ describe('OpenModelTSEngine', () => {
                 }
             `,
         });
+        await engine.loadProject(project);
         await engine.boot();
 
         let beforeCalled = false;
@@ -175,7 +180,7 @@ describe('OpenModelTSEngine', () => {
 
     it('emits term execution events correctly', async () => {
         const engine = new OpenModelTSEngine();
-        await engine.loadProject({
+        const project = new InlineTSProject({
             '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function TermsSet(target) { target.__isTermsSet = true; return target; }
@@ -200,6 +205,7 @@ describe('OpenModelTSEngine', () => {
                 }
             `,
         });
+        await engine.loadProject(project);
         await engine.boot();
 
         let beforeCalled = false;
@@ -222,7 +228,7 @@ describe('OpenModelTSEngine', () => {
 
     it('supports OutputNodes with event emission', async () => {
         const engine = new OpenModelTSEngine();
-        await engine.loadProject({
+        const project = new InlineTSProject({
             '/bindings.ts': `
                 export function Workbook(target) { return target; }
                 export function OutputNode(target, context) {
@@ -249,6 +255,7 @@ describe('OpenModelTSEngine', () => {
                 }
             `,
         });
+        await engine.loadProject(project);
         await engine.boot();
 
         let tableData: any = null;
