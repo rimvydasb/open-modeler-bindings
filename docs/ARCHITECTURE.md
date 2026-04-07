@@ -104,10 +104,11 @@ Every module enforces a Public API pattern. External modules must only import fr
 
 ## Detailed Specifications
 
-| Document                                                   | Description                                                                   |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [**OpenModelTSEngine Spec**](./ENGINE_SPEC.md)             | Application layer details, VM bridging, and Host-side API.                    |
-| [**Bindings & Reactivity Spec**](./BINDINGS_SPEC.md)       | Domain layer details: DAG, Trace Store, and Pull/Push mechanics.              |
-| [**TS Project Spec**](./TS_PROJECT_SPEC.md)                | Infrastructure layer details: Sourcing, transpilation, and manifest handling. |
-| [**OpenModelTS Spec**](./OPEN_MODEL_TS_SPEC.md)            | Developer guide for modeling with decorators.                                 |
-| [**Project Structure Spec**](./OPEN_MODEL_PROJECT_SPEC.md) | Requirements for `package.json` in Open Model projects.                       |
+| Document                                                     | Description                                                                   |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| [**OpenModelTSEngine Spec**](./modules/ENGINE_SPEC.md)       | Application layer details, VM bridging, and Host-side API.                    |
+| [**Bindings & Reactivity Spec**](./modules/BINDINGS_SPEC.md) | Domain layer details: DAG, Trace Store, and Pull/Push mechanics.              |
+| [**TS Project Spec**](./modules/TS_PROJECT_SPEC.md)          | Infrastructure layer details: Sourcing, transpilation, and manifest handling. |
+| [**OpenModelTS Spec**](./OPEN_MODEL_TS_SPEC.md)              | Developer guide for modeling with decorators.                                 |
+| [**Project AST Spec**](./modules/PROJECT_AST_SPEC.md)        | Semantic model details: AST structure, mapping rules, and round-trip logic.   |
+| [**Project Structure Spec**](./OPEN_MODEL_PROJECT_SPEC.md)   | Requirements for `package.json` in Open Model projects.                       |

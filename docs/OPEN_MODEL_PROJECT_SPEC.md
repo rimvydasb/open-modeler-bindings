@@ -7,7 +7,7 @@ Model project must contain:
   Modeler Editor.
 - `main.ts` file that contains all workbooks or decision service definitions.
 - `types.ts` file that contains all type definitions for workbooks and decision services.
-- `libraty.ts` file that contains all reusable functions (a.k.a. knowledge elements) for workbooks and decision
+- `library.ts` file that contains all reusable functions (a.k.a. knowledge elements) for workbooks and decision
   services.
 
 ## package.json project declaration

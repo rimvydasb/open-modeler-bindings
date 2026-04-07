@@ -54,7 +54,8 @@ graph TB
 
 ## AST Structural Diagram
 
-The `ProjectAST` is organized around the concept of **Workbooks** (containers) and **Nodes** (reactive units).
+The `ProjectAST` is organized around the concept of **Workbooks** (containers) and **Nodes** (reactive units), serving
+as a semantic bridge between TypeScript source and the Flow Editor.
 
 ```mermaid
 classDiagram
@@ -76,7 +77,8 @@ classDiagram
         +workbooks: WorkbookDeclaration[]
         +termsSets: TermsSetDeclaration[]
         +types: TypeDeclaration[]
-        +functions: FunctionDeclarations[]
+        +enums: EnumDeclaration[]
+        +functions: FunctionDeclaration[]
     }
 
     class WorkbookDeclaration {
@@ -86,29 +88,51 @@ classDiagram
     WorkbookDeclaration --|> DeclarationBase
 
     class TermsSetDeclaration {
+        +members: TermsMemberDeclaration[]
     }
 
     TermsSetDeclaration --|> DeclarationBase
+
+    class TermsMemberDeclaration {
+        +returnType: TypeReference
+        +isGetter: boolean
+    }
+
+    TermsMemberDeclaration --|> DeclarationBase
 
     class FunctionDeclaration {
         +returnType: TypeReference
         +parameters: ParameterInfo[]
         +isAsync: boolean
+        +expression: string
     }
 
     FunctionDeclaration --|> DeclarationBase
 
     class TypeDeclaration {
+        +kind: TypeKind
         +properties: PropertyInfo[]
     }
 
     TypeDeclaration --|> DeclarationBase
 
+    class EnumDeclaration {
+        +members: EnumMember[]
+    }
+
+    EnumDeclaration --|> DeclarationBase
+
+    class EnumMember {
+        +name: string
+        +value: string | number
+    }
+
     class NodeDeclaration {
         +nodeType: NodeType
+        +nodeKind: NodeKind
         +returnType: TypeReference
-        +parameters: ParameterInfo[]
-        +isAsync: boolean
+        +dependencies: string[]
+        +expression: string
         +metadata: Record~string, any~
     }
 
@@ -123,11 +147,31 @@ classDiagram
         OUTPUT
     }
 
+    class NodeKind {
+        <<enumeration>>
+        PROPERTY
+        GETTER
+        ACCESSOR
+    }
+
+    class TypeKind {
+        <<enumeration>>
+        INTERFACE
+        ALIAS
+    }
+
     class ParameterInfo {
         +name: string
         +type: TypeReference
         +isOptional: boolean
         +defaultValue: string | undefined
+    }
+
+    class PropertyInfo {
+        +name: string
+        +type: TypeReference
+        +isOptional: boolean
+        +documentation: string | undefined
     }
 
     class TypeReference {
@@ -140,12 +184,26 @@ classDiagram
     ProjectAST *-- WorkbookDeclaration
     ProjectAST *-- TermsSetDeclaration
     ProjectAST *-- TypeDeclaration
+    ProjectAST *-- EnumDeclaration
+    ProjectAST *-- FunctionDeclaration
+
     WorkbookDeclaration *-- NodeDeclaration
-    TermsSetDeclaration *-- NodeDeclaration
+    TermsSetDeclaration *-- TermsMemberDeclaration
+
     NodeDeclaration o-- NodeType
-    NodeDeclaration *-- ParameterInfo
+    NodeDeclaration o-- NodeKind
     NodeDeclaration *-- TypeReference
+
+    TypeDeclaration o-- TypeKind
     TypeDeclaration *-- PropertyInfo
+
+    EnumDeclaration *-- EnumMember
+
+    FunctionDeclaration *-- ParameterInfo
+    FunctionDeclaration *-- TypeReference
+
+    PropertyInfo *-- TypeReference
+    ParameterInfo *-- TypeReference
 ```
 
 ## Node Mapping Rules

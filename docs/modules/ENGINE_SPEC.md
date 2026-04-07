@@ -48,9 +48,9 @@ classDiagram
         +dispose() void
     }
 
-    OpenModelTSEngine "1" *-- "1" QuickJSContext : owns
-    OpenModelTSEngine ..> Scope : manages memory
-    OpenModelTSEngine ..> ts_morph : transpiles
+    OpenModelTSEngine "1" *-- "1" QuickJSContext: owns
+    OpenModelTSEngine ..> Scope: manages memory
+    OpenModelTSEngine ..> ts_morph: transpiles
 ```
 
 ## Behavioral Diagram
@@ -63,18 +63,17 @@ sequenceDiagram
     participant Engine
     participant VFS as ts-morph VFS
     participant VM as QuickJS VM
-
-    Host->>Engine: loadProject(sources)
-    Engine->>VFS: Create source files
-    VFS->>Engine: Emit JS Bundle (Memory)
-    Engine->>Engine: sanitize(js)
-    Host->>Engine: boot()
-    Engine->>VM: Inject bridges (console, emitEvent)
-    Engine->>VM: evalCode(sanitizedJs)
-    Host->>Engine: executeWorkbook("MyWorkbook")
-    Engine->>VM: callVm("evalWorkbook", "MyWorkbook")
-    VM-->>Engine: JSON results
-    Engine-->>Host: Typed Data
+    Host ->> Engine: loadProject(sources)
+    Engine ->> VFS: Create source files
+    VFS ->> Engine: Emit JS Bundle (Memory)
+    Engine ->> Engine: sanitize(js)
+    Host ->> Engine: boot()
+    Engine ->> VM: Inject bridges (console, emitEvent)
+    Engine ->> VM: evalCode(sanitizedJs)
+    Host ->> Engine: executeWorkbook("MyWorkbook")
+    Engine ->> VM: callVm("evalWorkbook", "MyWorkbook")
+    VM -->> Engine: JSON results
+    Engine -->> Host: Typed Data
 ```
 
 ## Components
@@ -122,5 +121,4 @@ for UI components.
 - **`onBeforeNodeExecution(workbook, node, callback)`**: Triggered before a node calculates.
 - **`onAfterNodeExecution(workbook, node, callback)`**: Triggered after a node calculates.
 - **`onBeforeTermExecution(workbook, node, callback)`**: Triggered before a term in a `TermsSet` calculates.
-- **`onAfterTermExecution(workbook, node, callback)`**: Triggered after a term in a `TermsSet` calculates. msSet`
-  calculates.
+- **`onAfterTermExecution(workbook, node, callback)`**: Triggered after a term in a `TermsSet` calculates.
